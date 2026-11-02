@@ -1,0 +1,10 @@
+{"id": "happy-small", "description": "Typical small order", "input": {"quantity": 5, "unit_price_cents": 1999}}
+{"id": "happy-bulk", "description": "Typical bulk order", "input": {"quantity": 250, "unit_price_cents": 400}}
+{"id": "zero-quantity", "description": "Zero units", "input": {"quantity": 0, "unit_price_cents": 1999}}
+{"id": "below-tier-1", "description": "One below the 10% tier", "input": {"quantity": 99, "unit_price_cents": 100}}
+{"id": "at-tier-1", "description": "Exactly at the 10% tier boundary", "input": {"quantity": 100, "unit_price_cents": 100}}
+{"id": "above-tier-1", "description": "One above the 10% tier", "input": {"quantity": 101, "unit_price_cents": 100}}
+{"id": "at-tier-2", "description": "Exactly at the 20% tier boundary", "input": {"quantity": 1000, "unit_price_cents": 100}}
+{"id": "negative-quantity", "description": "Negative units must be rejected", "input": {"quantity": -1, "unit_price_cents": 100}}
+{"id": "bool-quantity", "description": "true is not an integer", "input": {"quantity": true, "unit_price_cents": 100}}
+{"id": "huge-quantity", "description": "Arbitrary-precision integers", "input": {"quantity": 123456789012345678901234567890, "unit_price_cents": 3}}

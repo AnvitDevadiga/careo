@@ -1,0 +1,36 @@
+# Careo demo: original bulk-pricing program vs. an AI-rewrite-style candidate
+# that contains a deliberately seeded boundary bug. See README.md.
+version: 1
+
+reference:
+  name: original
+  command: ["python3", "original.py"]
+  cwd: .
+
+candidate:
+  name: ai-rewrite
+  command: ["python3", "candidate.py"]
+  cwd: .
+
+cases:
+  file: cases.jsonl
+
+limits:
+  timeout_seconds: 10
+  max_output_bytes: 65536
+
+comparison:
+  # Exit code 2 + {"error": ...} is part of the contract for invalid input.
+  accepted_exit_codes: [0, 2]
+  stderr: ignore
+  repeat: 1
+
+normalize:
+  - id: timestamp
+    path: /generated_at
+    action: mask
+    reason: wall-clock time of the run
+  - id: request-id
+    path: /request_id
+    action: mask
+    reason: random UUID per request

@@ -1,0 +1,57 @@
+/* Light first. Dark applies with the OS preference unless the visitor chose light,
+   or when the visitor explicitly chose dark. */
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f6f5;
+  --fg: #0a0a0a;
+  --fg-muted: #565656;
+  --border: #e3e3e1;
+  --border-strong: #c9c9c6;
+  --code-bg: #f6f6f5;
+  --accent: #0a0a0a;
+  --on-accent: #ffffff;
+  --bad: #b42318;
+  --bad-soft: #fdf0ee;
+  --ok: #1d6b3a;
+  --focus: #0a0a0a;
+  --radius: 6px;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0b0b;
+    --bg-soft: #141414;
+    --fg: #f2f2f0;
+    --fg-muted: #a3a3a0;
+    --border: #262626;
+    --border-strong: #3a3a3a;
+    --code-bg: #141414;
+    --accent: #f2f2f0;
+    --on-accent: #0b0b0b;
+    --bad: #ff8b7e;
+    --bad-soft: #2a1513;
+    --ok: #7fd49b;
+    --focus: #f2f2f0;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0b0b;
+  --bg-soft: #141414;
+  --fg: #f2f2f0;
+  --fg-muted: #a3a3a0;
+  --border: #262626;
+  --border-strong: #3a3a3a;
+  --code-bg: #141414;
+  --accent: #f2f2f0;
+  --on-accent: #0b0b0b;
+  --bad: #ff8b7e;
+  --bad-soft: #2a1513;
+  --ok: #7fd49b;
+  --focus: #f2f2f0;
+  color-scheme: dark;
+}

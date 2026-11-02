@@ -111,6 +111,118 @@ def cmd_replay(args: argparse.Namespace) -> int:
     return EXIT_REPLAY_DIVERGED
 
 
+# --------------------------------------------------------------------------- stateful
+
+
+def _gen_overrides(spec: Any, args: argparse.Namespace) -> Any:
+    from dataclasses import replace
+
+    g = spec.generation
+    changes = {}
+    for name in ("seed", "max_scenarios", "max_steps", "max_operations"):
+        v = getattr(args, name, None)
+        if v is not None:
+            changes[name] = v
+    if getattr(args, "no_shrink", False):
+        changes["shrink"] = False
+    return spec.with_generation(replace(g, **changes)) if changes else spec
+
+
+def cmd_scenario_validate(args: argparse.Namespace) -> int:
+    from careo.scenarios.spec import load_spec
+
+    spec = load_spec(args.spec)
+    print(f"spec OK: {spec.path}")
+    for svc in (spec.reference, spec.candidate):
+        how = "managed: " + " ".join(svc.command) if svc.command else "external"
+        print(f"{svc.role:<10} {svc.name}: {svc.base_url} ({how})")
+    if spec.state:
+        print(
+            f"state      sqlite, reset={spec.state.reset}, compare={spec.state.compare}, "
+            f"tables={[t.name for t in spec.state.tables]}"
+        )
+    print(f"operations {len(spec.operations)} from {spec.operations_source}:")
+    for op in spec.operations:
+        extra = f" -> produces {op.produces.entity}" if op.produces else ""
+        needs = f" (needs {', '.join(op.bundle_slots())})" if op.bundle_slots() else ""
+        print(f"  - {op.name}: {op.method} {op.path}{needs}{extra}")
+    print(f"generation {spec.generation.to_dict()}")
+    return 0
+
+
+def cmd_scenario_run(args: argparse.Namespace) -> int:
+    from careo.reporting.scenario import write
+    from careo.scenarios.runner import export_regression, run
+    from careo.scenarios.spec import load_spec
+
+    spec = _gen_overrides(load_spec(args.spec), args)
+    out = Path(args.output_dir)
+    print(
+        f"careo {__version__}: stateful run, seed {spec.generation.seed}, up to "
+        f"{spec.generation.max_scenarios} scenarios x {spec.generation.max_steps} steps"
+    )
+    report = run(spec, out)
+    jp, mp = write(report, out)
+    st = report["stats"]
+    print(f"{report['outcome']}: {report['summary']}")
+    print(
+        f"scenarios={st['scenarios_generated']} operations={st['operations_executed']} "
+        f"resets={st['resets']} runtime={st['runtime_seconds']}s"
+    )
+    for n in report["notes"]:
+        print(f"note: {n}")
+    for w in report["warnings"]:
+        print(f"warning: {w}")
+    if report["minimized_sequence"]:
+        o, m = report["original_sequence"], report["minimized_sequence"]
+        v = report["verification"] or {}
+        print(
+            f"original sequence: {o['length']} operations; minimized: {m['length']} operations; "
+            f"verified {v.get('reproduced', 0)}/{v.get('checks', 0)}"
+        )
+        for i, step in enumerate(m["steps"]):
+            print(f"  {i}. {_short(step)}")
+        if report["evidence"]:
+            last = report["evidence"][-1]
+            for d in last["differences"]:
+                ref = _short(d["reference"]) if "reference" in d else "(absent)"
+                cand = _short(d["candidate"]) if "candidate" in d else "(absent)"
+                print(f"     {d['path']}: {d['kind']}: {ref} -> {cand}")
+    for path in export_regression(report, spec, out):
+        print(f"exported: {path}")
+    print(f"reports: {jp}  {mp}")
+    return int(report["exit_code"])
+
+
+def cmd_scenario_replay(args: argparse.Namespace) -> int:
+    from careo.scenarios.runner import replay_file
+
+    res = replay_file(Path(args.scenario), args.spec)
+    print(res.describe())
+    if res.reproduced:
+        print("REPRODUCED: replay matches the recorded result")
+        return 0
+    print(f"NOT REPRODUCED: recorded {res.expected!r}, now {res.signature!r}")
+    return EXIT_REPLAY_DIVERGED
+
+
+def cmd_scenario_minimize(args: argparse.Namespace) -> int:
+    from careo.scenarios.runner import minimize_file
+
+    result = minimize_file(
+        Path(args.scenario), Path(args.output), args.spec, args.max_replays, args.checks
+    )
+    for k, v in result.items():
+        print(f"{k}: {v}")
+    return 0 if result.get("minimized") else 1
+
+
+def cmd_bench(args: argparse.Namespace) -> int:
+    from careo.evaluation.bench import run_suite
+
+    return run_suite(Path(args.suite), Path(args.output_dir), args.seeds, args.quick)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="careo",
@@ -142,6 +254,38 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", help="config to use instead of the recorded config_path")
     p.add_argument("--output-dir", help="also write the replay's report here")
     p.set_defaults(func=cmd_replay)
+    sc = sub.add_parser("scenario", help="stateful differential testing of HTTP services")
+    ssub = sc.add_subparsers(dest="scenario_command", required=True)
+    p = ssub.add_parser("validate", help="check a scenario spec without running anything")
+    p.add_argument("--spec", default="careo-scenarios.yaml")
+    p.set_defaults(func=cmd_scenario_validate)
+    p = ssub.add_parser("run", help="generate, compare, shrink, verify and export")
+    p.add_argument("--spec", default="careo-scenarios.yaml")
+    p.add_argument("--output-dir", default="careo-scenario-report")
+    p.add_argument("--seed", type=int)
+    p.add_argument("--max-scenarios", type=int)
+    p.add_argument("--max-steps", type=int)
+    p.add_argument("--max-operations", type=int)
+    p.add_argument("--no-shrink", action="store_true")
+    p.set_defaults(func=cmd_scenario_run)
+    p = ssub.add_parser("replay", help="replay a scenario file from a clean verified state")
+    p.add_argument("--scenario", required=True)
+    p.add_argument("--spec")
+    p.set_defaults(func=cmd_scenario_replay)
+    p = ssub.add_parser("minimize", help="bounded reduction of a recorded failing scenario")
+    p.add_argument("--scenario", required=True)
+    p.add_argument("--output", required=True)
+    p.add_argument("--spec")
+    p.add_argument("--max-replays", type=int, default=200)
+    p.add_argument("--checks", type=int, default=3)
+    p.set_defaults(func=cmd_scenario_minimize)
+
+    p = sub.add_parser("bench", help="run the seeded-regression evaluation suite")
+    p.add_argument("--suite", required=True)
+    p.add_argument("--output-dir", default="careo-bench")
+    p.add_argument("--seeds", type=int, default=5)
+    p.add_argument("--quick", action="store_true", help="small budgets (CI validation)")
+    p.set_defaults(func=cmd_bench)
     return parser
 
 

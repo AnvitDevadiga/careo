@@ -11,3 +11,6 @@ build/
 careo-report/
 .claude/
 CLAUDE.md
+benchmarks/results/*/runs/
+careo-scenario-report/
+.careo-replay/

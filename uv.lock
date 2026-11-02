@@ -72,9 +72,10 @@ wheels = [
 
 [[package]]
 name = "careo"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
+    { name = "hypothesis" },
     { name = "pyyaml" },
 ]
 
@@ -88,7 +89,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
+requires-dist = [
+    { name = "hypothesis", specifier = ">=6.100" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [

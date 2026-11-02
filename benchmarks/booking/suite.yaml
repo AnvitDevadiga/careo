@@ -1,0 +1,19 @@
+# Careo benchmark suite: seeded regressions in a booking API.
+# Every defect is deliberately seeded. Results measure Careo on these fixtures
+# only and say nothing about effectiveness on real migrations.
+base_spec: ../../examples/booking-api/careo-scenarios.yaml
+unit_tests: ../../examples/booking-api/test_happy_path.py
+candidate_script: rewrite.py
+budget:
+  operations: 400          # identical operation budget for methods B, C and D
+  max_steps: 25            # per scenario for C and D (B uses 1)
+  replay_checks: 3
+cases:
+  - {name: retry_cancel,      defect: retry_cancel,      seeded: true}
+  - {name: slot_not_released, defect: slot_not_released, seeded: true}
+  - {name: lost_update,       defect: lost_update,       seeded: true}
+  - {name: pagination,        defect: pagination,        seeded: true}
+  - {name: missing_error,     defect: missing_error,     seeded: true}
+  - {name: status_transition, defect: status_transition, seeded: true}
+  - {name: clean_rewrite,     defect: none,              seeded: false}
+  - {name: reference_vs_self, defect: null,              seeded: false}

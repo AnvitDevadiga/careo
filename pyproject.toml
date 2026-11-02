@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "careo"
-version = "0.1.0"
-description = "Differential behavior testing for original vs. rewritten programs. Catch what the AI rewrite broke."
+version = "0.2.0"
+description = "Differential and stateful behavior testing for original vs. rewritten programs and services. Catch what the AI rewrite broke."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Anvit Devadiga" }]
 requires-python = ">=3.11"
-dependencies = ["PyYAML>=6.0"]
+dependencies = ["PyYAML>=6.0", "hypothesis>=6.100"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: POSIX",
@@ -37,7 +37,7 @@ dev = [
 packages = ["src/careo"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "examples", "docs", "README.md", "LICENSE", "pyproject.toml"]
+include = ["src", "tests", "examples", "benchmarks/booking", "benchmarks/*.py", "benchmarks/README.md", "docs", "README.md", "LICENSE", "pyproject.toml"]
 
 [tool.ruff]
 line-length = 100
@@ -50,6 +50,7 @@ ignore = ["S603", "S101"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "B011"]
 "examples/**" = ["S"]
+"benchmarks/**" = ["S"]
 
 [tool.mypy]
 python_version = "3.11"

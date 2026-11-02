@@ -69,7 +69,7 @@ tiers). It is a constructed demo, not a real-world finding.
 
 ```console
 $ careo compare --config examples/bulk-pricing/careo.yaml
-careo 0.1.0: comparing 10 case(s)
+careo 0.2.0: comparing 10 case(s)
   MATCH             happy-small
   MATCH             happy-bulk
   MATCH             zero-quantity
@@ -88,6 +88,74 @@ $ careo inspect careo-report/report.json
     /discount_percent: value_changed: 10 -> 0
     /total_cents: value_changed: 9000 -> 10000
 ```
+
+## Stateful HTTP testing
+
+Some regressions only show up after several operations. In the demo, creating,
+cancelling and then *retrying* the cancellation behaves differently.
+`careo scenario run` generates operation sequences with Hypothesis
+(`RuleBasedStateMachine` and bundles), runs each one against both services from a
+**verified** identical database state, and compares responses and persistent state
+after every step. It then shrinks the failure, re-verifies it, and exports a
+regression test.
+
+```console
+$ careo scenario run --spec examples/booking-api/careo-scenarios.yaml --output-dir out
+careo 0.2.0: stateful run, seed 20261102, up to 200 scenarios x 25 steps
+DIFFERENCE_CONFIRMED: A behavioral difference was found and its minimized sequence reproduced on every verification replay after a reset (see isolation).
+scenarios=381 operations=2981 resets=395 runtime=3.045s
+warning: database state was reset and verified, but service processes were not restarted: in-memory state can leak across scenarios (use reset: restart)
+original sequence: 13 operations; minimized: 3 operations; verified 3/3
+  0. {"op": "create_booking", "params": {}, "query": {}, "body": {"customer": "ana", "slot": "09:00"}}
+  1. {"op": "cancel_booking", "params": {"id": {"$ref": "booking#1"}}, "query": {}}
+  2. {"op": "cancel_booking", "params": {"id": {"$ref": "booking#1"}}, "query": {}}
+     <status>: status_changed: 409 -> 200
+     <body>/error: missing_in_candidate: "already_cancelled" -> (absent)
+     ...
+     <db>/events/3: extra_in_candidate: (absent) -> {"booking_id": "<booking#1:integer>", "kind": "cancelled"}
+exported: out/regression.json
+exported: out/test_careo_regression.py
+```
+
+The candidate's seeded bug: a retried cancellation succeeds and records a
+second "cancelled" event. It was **deliberately planted** in
+`examples/booking-api/app_candidate.py`, and the example's own happy-path tests
+pass against both implementations. The candidate also numbers bookings
+differently (8000, 8003, …). Logical-id mapping (`booking#1` → 2 / 8000, shown as `<booking#1:integer>`) keeps
+that from being reported as a difference, while a genuinely wrong id still is.
+
+Other commands: `careo scenario validate`, `careo scenario replay --scenario
+regression.json`, `careo scenario minimize`, and `careo bench`. See
+[docs/stateful.md](docs/stateful.md) for the spec format, the reset lifecycle,
+verdicts, the OpenAPI subset and the security model.
+
+## Benchmark (seeded fixtures)
+
+Six regressions were **deliberately seeded** into an independent rewrite of the
+booking API. Two clean candidates (a clean rewrite with different ids, and the
+reference against itself) measure false alarms. Each case ran 5 seeds, with an
+equal budget of 400 search operations for methods B–D. These are the real
+results from `benchmarks/results/latest`:
+
+| Method | Seeded detection | Cases found | False alarms | Median sequence length (before → after shrink) |
+|---|---|---|---|---|
+| A. Example happy-path unit tests | 1/6 cases | 1/6 | 0/2 | n/a |
+| B. Single-operation random | 5/30 runs | 1/6 | 0/10 | 1 → 1 |
+| C. Stateful differential | 30/30 runs | 6/6 | 0/10 | 11.5 → 11.5 |
+| D. Stateful + shrinking | 30/30 runs | 6/6 | 0/10 | 11.5 → 2.5 |
+
+How to read the table:
+
+- **A is not budget-equal.** It is the example project's fixed test suite.
+- **D detects exactly what C does.** It runs the same seeded search; what it adds
+  is shorter counterexamples, every one replay-verified (30/30), at roughly 13×
+  more total operations.
+- **Small budgets miss things.** In smaller trial runs (150 operations, quick mode),
+  C and D missed `missing_error` because Hypothesis front-loads simple values.
+
+These numbers describe these fixtures only. They are not evidence of
+effectiveness on real migrations. Raw per-run records, configurations and the
+commit are in [benchmarks/](benchmarks/).
 
 ## Outcomes
 
@@ -109,15 +177,17 @@ all detected (duplicate keys and NaN/Infinity make output invalid).
 
 ```
 src/careo/
-  cli.py          argparse commands: compare, validate, inspect, replay
-  config.py       strict YAML loading, path containment, executable resolution
-  execution.py    one subprocess run: argv only, timeout, output caps, process-group kill
-  jsonvalue.py    strict JSON parsing, canonical serialization
-  normalize.py    JSON-Pointer-scoped mask/regex rules
-  comparison.py   structural diff under a ComparisonPolicy
-  engine.py       per-case runs, repeat checks, outcome classification, report dict
-  report.py       report.json / report.md writing, loading, schema check
-  replay.py       re-run recorded inputs, detect drift and divergence
+  cli.py              compare | validate | inspect | replay | scenario … | bench
+  config.py           Phase 1 config: strict YAML, path containment, executables
+  engine.py replay.py report.py   Phase 1 one-shot comparison, replay, reports
+  jsonvalue.py normalize.py       strict JSON, JSON-Pointer normalization rules
+  comparison/         structural diff under a ComparisonPolicy
+  execution/          one-shot runs (__init__) and managed services (service.py)
+  adapters/           http.py (loopback HTTP client), sqlite.py (reset + verify + snapshot)
+  scenarios/          spec.py, openapi.py, session.py (paired steps, logical ids),
+                      machine.py (Hypothesis), runner.py (shrink, verify, replay, export)
+  reporting/          scenario report rendering
+  evaluation/         bench.py (seeded-regression benchmark harness)
 ```
 
 See [docs/design.md](docs/design.md) for the execution model and report schema.
@@ -148,12 +218,21 @@ See [docs/design.md](docs/design.md) for the execution model and report schema.
   `identity_files` you list. Imported modules that are not listed are not tracked.
 - `mask` hides value changes (not type or presence changes) at that path, by design.
 - Linux and macOS only. Windows is untested.
+- Stateful testing:
+  - **Supported targets:** HTTP/JSON services with SQLite state only. PostgreSQL is
+    not supported yet.
+  - **Reset scope:** `reset: sqlite` resets the database, not in-memory caches.
+    Use `reset: restart` if services keep state in memory.
+  - **OpenAPI:** only a documented subset is supported.
+  - **Generation bias:** Hypothesis favors simple values early on, so some defects
+    need larger budgets (see benchmark results).
+  - **Minimization:** results are smaller, not proven globally minimal.
 
 ## Tests
 
 ```sh
 uv sync
-uv run pytest            # unit, integration and Hypothesis property tests
+uv run pytest            # unit, integration, property, stateful, security and benchmark tests
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 ```
 

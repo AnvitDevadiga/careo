@@ -1,0 +1,329 @@
+{
+  "meta": {
+    "careo_version": "0.2.0",
+    "git_commit": "b489acee4bed8bb93310274c1e6c45bdee880929",
+    "environment": {
+      "careo_version": "0.2.0",
+      "python": "3.13.15",
+      "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+      "machine": "arm64"
+    },
+    "started_at": "2026-11-02T09:50:07.416391+00:00",
+    "finished_at": "2026-11-02T09:53:25.214204+00:00",
+    "seeds": 5,
+    "quick": false,
+    "budget_operations": 400,
+    "max_steps": 25,
+    "replay_checks": 3,
+    "suite": "benchmarks/booking/suite.yaml",
+    "spec_fingerprints": {
+      "retry_cancel": "sha256:5cfc139442baf3d702ab3ef312a967f4733c78cf48b58bba5a14caf535c9bb33",
+      "slot_not_released": "sha256:6f8bebbfd46b8857fe49f168744650560434d03d4ddccd3e0959e9253a9294db",
+      "lost_update": "sha256:321290b5e3377b37de2bcaae6d907e084deb1180b9c8a89f89ba1197176a985a",
+      "pagination": "sha256:54aca5a909513edd10e6d6dc401b0b5c0dbf55354aebf8555aa6541e37d64e6b",
+      "missing_error": "sha256:06e76cc2f7c3c24426e26a81161ae0807820cf12b74777c51154776b3b16afa6",
+      "status_transition": "sha256:184b464235f8b41f421c08424bc10868a2170ffebb1b5346b4f8fe16d7dc746f",
+      "clean_rewrite": "sha256:83e1a68296fe0345cc6a43323b67f0ec52530d6e72e25260ca4501fb06875398",
+      "reference_vs_self": "sha256:197f0760688d0f6ed12a2dd5f37e653116d44f8776680e0b72bdd8993dc2dec3"
+    },
+    "python": "3.13.15"
+  },
+  "summary": {
+    "A_unit_tests": {
+      "runs": 8,
+      "invalid_runs": 0,
+      "seeded_detection": {
+        "numerator": 1,
+        "denominator": 6,
+        "rate": 0.167
+      },
+      "seeded_cases_detected_at_least_once": {
+        "numerator": 1,
+        "denominator": 6,
+        "rate": 0.167
+      },
+      "false_alarms_on_clean": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0.0
+      },
+      "per_case_detection": {
+        "retry_cancel": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        },
+        "slot_not_released": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        },
+        "lost_update": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        },
+        "pagination": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        },
+        "missing_error": {
+          "numerator": 1,
+          "denominator": 1,
+          "rate": 1.0
+        },
+        "status_transition": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        },
+        "clean_rewrite": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        },
+        "reference_vs_self": {
+          "numerator": 0,
+          "denominator": 1,
+          "rate": 0.0
+        }
+      },
+      "median_operations_to_first_difference": null,
+      "median_time_to_first_difference_seconds": null,
+      "total_operations_executed": 72,
+      "invalid_run_ids": [],
+      "total_search_operations": 72,
+      "median_sequence_length_before_shrink": null,
+      "median_sequence_length_after_shrink": null,
+      "replay_success": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "total_runtime_seconds": 0.561
+    },
+    "B_single_operation": {
+      "runs": 40,
+      "invalid_runs": 0,
+      "seeded_detection": {
+        "numerator": 5,
+        "denominator": 30,
+        "rate": 0.167
+      },
+      "seeded_cases_detected_at_least_once": {
+        "numerator": 1,
+        "denominator": 6,
+        "rate": 0.167
+      },
+      "false_alarms_on_clean": {
+        "numerator": 0,
+        "denominator": 10,
+        "rate": 0.0
+      },
+      "per_case_detection": {
+        "retry_cancel": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "slot_not_released": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "lost_update": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "pagination": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "missing_error": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "status_transition": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "clean_rewrite": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "reference_vs_self": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        }
+      },
+      "median_operations_to_first_difference": 20,
+      "median_time_to_first_difference_seconds": 0.175,
+      "total_operations_executed": 14150,
+      "invalid_run_ids": [],
+      "total_search_operations": 14098,
+      "median_sequence_length_before_shrink": 1,
+      "median_sequence_length_after_shrink": 1,
+      "replay_success": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "total_runtime_seconds": 43.779
+    },
+    "C_stateful": {
+      "runs": 40,
+      "invalid_runs": 0,
+      "seeded_detection": {
+        "numerator": 30,
+        "denominator": 30,
+        "rate": 1.0
+      },
+      "seeded_cases_detected_at_least_once": {
+        "numerator": 6,
+        "denominator": 6,
+        "rate": 1.0
+      },
+      "false_alarms_on_clean": {
+        "numerator": 0,
+        "denominator": 10,
+        "rate": 0.0
+      },
+      "per_case_detection": {
+        "retry_cancel": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "slot_not_released": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "lost_update": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "pagination": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "missing_error": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "status_transition": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "clean_rewrite": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "reference_vs_self": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        }
+      },
+      "median_operations_to_first_difference": 104.0,
+      "median_time_to_first_difference_seconds": 0.207,
+      "total_operations_executed": 9260,
+      "invalid_run_ids": [],
+      "total_search_operations": 7872,
+      "median_sequence_length_before_shrink": 11.5,
+      "median_sequence_length_after_shrink": 11.5,
+      "replay_success": {
+        "numerator": 30,
+        "denominator": 30,
+        "rate": 1.0
+      },
+      "total_runtime_seconds": 20.363
+    },
+    "D_stateful_shrinking": {
+      "runs": 40,
+      "invalid_runs": 0,
+      "seeded_detection": {
+        "numerator": 30,
+        "denominator": 30,
+        "rate": 1.0
+      },
+      "seeded_cases_detected_at_least_once": {
+        "numerator": 6,
+        "denominator": 6,
+        "rate": 1.0
+      },
+      "false_alarms_on_clean": {
+        "numerator": 0,
+        "denominator": 10,
+        "rate": 0.0
+      },
+      "per_case_detection": {
+        "retry_cancel": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "slot_not_released": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "lost_update": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "pagination": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "missing_error": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "status_transition": {
+          "numerator": 5,
+          "denominator": 5,
+          "rate": 1.0
+        },
+        "clean_rewrite": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        },
+        "reference_vs_self": {
+          "numerator": 0,
+          "denominator": 5,
+          "rate": 0.0
+        }
+      },
+      "median_operations_to_first_difference": 104.0,
+      "median_time_to_first_difference_seconds": 0.204,
+      "total_operations_executed": 117362,
+      "invalid_run_ids": [],
+      "total_search_operations": 7872,
+      "median_sequence_length_before_shrink": 11.5,
+      "median_sequence_length_after_shrink": 2.5,
+      "replay_success": {
+        "numerator": 30,
+        "denominator": 30,
+        "rate": 1.0
+      },
+      "total_runtime_seconds": 132.991
+    }
+  }
+}

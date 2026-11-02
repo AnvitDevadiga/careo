@@ -21,8 +21,16 @@ teardown  SIGKILL each service's process group (also on SIGTERM/SIGINT and at ex
 ```
 
 `reset: sqlite` is fast but cannot clear state a service keeps **in memory**.
-That is a documented limitation and is covered by a test. Use `reset: restart`
-when services cache state. The reset is verified on the database only.
+Reports therefore carry an `isolation` block and a warning in that case. Use
+`reset: restart` when services cache state. The reset is verified on the database
+only. Without a `state` block:
+
+- **Managed services** are restarted before every scenario.
+- **External services** require `unverified_initial_state: true`. Their reports warn
+  that scenarios may not be independent.
+
+An external service's database is reset **in place**. The file is never deleted,
+so a running service keeps a valid handle.
 
 ## Spec (`careo-scenarios.yaml`)
 
@@ -76,7 +84,9 @@ Value generators: a literal, `const`, `sampled_from`, `integers {min, max}`,
 `produces` registers one logical id, such as `booking#1`, that maps to each side's
 own actual id (for example `2` and `8000`). Later `{bundle: booking}` arguments send each
 side its own id. Before comparison, values at `ids` pointers and `id_columns`
-are rewritten to `<booking#1>`. These rules keep the mapping honest:
+are rewritten to `<booking#1:integer>`. The marker keeps the JSON type of the actual
+id, so an id that turns from `7` into `"7"` is still a difference. These rules keep
+the mapping honest:
 
 - an id that maps to no logical entity is left unchanged, so wrong or unmapped ids
   are still reported. Ids are never ignored wholesale;
@@ -88,6 +98,13 @@ Raw ids of *generated* entities are implementation-specific. A spec that
 fetches `/bookings/2` directly will legitimately differ between two
 numbering schemes. Use bundles for generated entities, and raw ids only for
 fixture rows or ids no implementation will generate.
+
+## Bodies
+
+Bodies are compared as JSON when both sides return JSON. If one side returns JSON
+and the other doesn't, that is a `body_format_changed` difference. Two non-JSON
+bodies are compared byte for byte (`raw_body_changed`), with no decoding and no
+normalization.
 
 ## Verdicts
 

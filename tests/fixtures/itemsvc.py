@@ -26,6 +26,8 @@ ap.add_argument("--bad-reset-hook", action="store_true")  # /__reset inserts a j
 ap.add_argument("--audit-extra", action="store_true")  # extra audit row on create
 ap.add_argument("--wrong-get-id", action="store_true")  # GET returns id + 1
 ap.add_argument("--pidfile", default="")
+ap.add_argument("--string-ids", action="store_true")  # ids serialized as strings
+ap.add_argument("--blob", default="ff")  # hex bytes served by GET /blob
 args = ap.parse_args()
 if args.pidfile:
     with open(args.pidfile, "w") as fh:
@@ -51,6 +53,14 @@ class H(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/health":
             return self.out(200, {"ok": True})
+        if path == "/blob":
+            data = bytes.fromhex(args.blob)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return None
         if path == "/__reset":
             if args.bad_reset_hook:
                 db.execute("INSERT INTO items (id, name) VALUES (424242, 'ghost')")
@@ -75,7 +85,7 @@ class H(BaseHTTPRequestHandler):
             db.execute("INSERT INTO items (id, name) VALUES (?, ?)", (new_id, body.get("name")))
             if args.audit_extra:
                 db.execute("INSERT INTO audit (item_id, action) VALUES (?, 'created')", (new_id,))
-            obj = {"id": new_id, "name": body.get("name")}
+            obj = {"id": str(new_id) if args.string_ids else new_id, "name": body.get("name")}
             if args.memory:
                 counter["memory"] += 1
                 obj["seq"] = counter["memory"]

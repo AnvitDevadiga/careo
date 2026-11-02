@@ -592,7 +592,16 @@ def load_spec(path: str | os.PathLike[str]) -> ScenarioSpec:
         raw,
         "spec",
         {"version", "services", "entities"},
-        {"operations", "openapi", "state", "http", "comparison", "normalize", "generation"},
+        {
+            "operations",
+            "openapi",
+            "state",
+            "http",
+            "comparison",
+            "normalize",
+            "generation",
+            "unverified_initial_state",
+        },
     )
     if d["version"] != SPEC_VERSION or isinstance(d["version"], bool):
         raise ConfigError(f"spec.version must be {SPEC_VERSION}")
@@ -606,6 +615,15 @@ def load_spec(path: str | os.PathLike[str]) -> ScenarioSpec:
     entities = set(ents)
 
     state = _state(d["state"], base, entities) if "state" in d else None
+    unverified = d.get("unverified_initial_state", False)
+    if not isinstance(unverified, bool):
+        raise ConfigError("unverified_initial_state must be true or false")
+    if state is None and not (reference.managed and candidate.managed) and not unverified:
+        raise ConfigError(
+            "without a state block Careo can only reset managed services (by restarting them); "
+            "for external services set unverified_initial_state: true to accept that scenarios "
+            "may not start from equivalent states"
+        )
     if state and state.reset == "restart" and not (reference.managed and candidate.managed):
         raise ConfigError("state.reset: restart requires managed services (command)")
     for s in (reference, candidate):

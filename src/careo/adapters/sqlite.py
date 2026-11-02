@@ -100,7 +100,16 @@ class SqliteState:
         self._expected: dict[str, Any] | None = None
 
     # -- lifecycle ---------------------------------------------------------
-    def prepare(self) -> None:
+    def prepare(self, recreate: bool = True) -> None:
+        """Create the database from schema+fixture. With ``recreate=False`` (an
+        external service that may already hold the file open) an existing file is
+        reset in place instead of being deleted, and must already have the schema."""
+        if not recreate and self.db_path.exists():
+            self.reset()
+            problem = self.verify_reset()
+            if problem:
+                raise StateError(f"{self.db_path.name}: {problem}")
+            return
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         for suffix in ("", "-wal", "-shm", "-journal"):
             Path(str(self.db_path) + suffix).unlink(missing_ok=True)

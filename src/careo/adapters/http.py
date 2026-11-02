@@ -78,6 +78,7 @@ class HttpResponse:
     code: int | None = None
     headers: dict[str, str] = field(default_factory=dict)  # lower-cased names
     body_text: str = ""
+    body_bytes: bytes = b""
     body_json: Any = None
     body_is_json: bool = False
     json_error: str = ""
@@ -185,6 +186,7 @@ def request(
     finally:
         conn.close()
 
+    result.body_bytes = raw
     result.body_text = raw.decode("utf-8", "replace")
     if raw.strip():
         try:

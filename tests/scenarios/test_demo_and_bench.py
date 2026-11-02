@@ -123,3 +123,26 @@ def test_bench_is_reproducible(tmp_path):
         "denominator": 1,
         "rate": 1.0,
     }
+
+
+def test_bench_unit_tests_that_error_count_as_failures(tmp_path):
+    from careo.evaluation.bench import load_suite, method_a, variant_spec
+    from careo.scenarios.spec import load_spec
+
+    tests = tmp_path / "unit.py"
+    tests.write_text(
+        "def call(*a, **k):\n    return None\n"
+        "def check_boom(base):\n    raise ConnectionResetError('crashed')\n"
+        "CHECKS = [check_boom]\n"
+    )
+    suite_path = tmp_path / "suite.yaml"
+    suite_path.write_text(
+        f"base_spec: {DEMO / 'careo-scenarios.yaml'}\nunit_tests: {tests}\n"
+        f"candidate_script: {REPO / 'benchmarks' / 'booking' / 'rewrite.py'}\n"
+        "budget: {operations: 10, max_steps: 2, replay_checks: 1}\n"
+        "cases: [{name: c, defect: none, seeded: false}]\n"
+    )
+    suite = load_suite(suite_path)
+    spec = variant_spec(load_spec(suite["base_spec"]), suite, "none")
+    res = method_a(spec, suite, tmp_path)
+    assert res["detected"] is True and "ConnectionResetError" in res["failures"][0]

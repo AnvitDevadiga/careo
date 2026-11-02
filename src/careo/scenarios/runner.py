@@ -258,7 +258,23 @@ def _report(
     minimized: list[dict[str, Any]] | None,
     ddmin_replays: int,
 ) -> dict[str, Any]:
-    warnings = [
+    iso = session.isolation() if session.sides else {}
+    warnings = []
+    if (
+        iso
+        and not iso["database_reset_and_verified"]
+        and not iso["processes_restarted_each_scenario"]
+    ):
+        warnings.append(
+            "initial state was NOT reset or verified (unverified_initial_state); "
+            "scenarios may not be independent"
+        )
+    elif iso and not iso["in_memory_state_reset"]:
+        warnings.append(
+            "database state was reset and verified, but service processes were not "
+            "restarted: in-memory state can leak across scenarios (use reset: restart)"
+        )
+    warnings += [
         f"normalization rule {k!r} never changed a value; check its path"
         for k, v in session.normalization_totals.items()
         if v == 0 and session.operations_executed
@@ -271,7 +287,7 @@ def _report(
             f"{rec.runs} generated scenarios. Bounded testing, not a proof of equivalence."
         ),
         DIFFERENCE_CONFIRMED: "A behavioral difference was found and its minimized sequence "
-        "reproduced on every verification replay from a clean, verified state.",
+        "reproduced on every verification replay after a reset (see isolation).",
         DIFFERENCE_FLAKY: "A difference was observed but did not reproduce reliably.",
         RESET_FAILED: "Equivalent initial state could not be established; results are void.",
         TIMEOUT: "Both services timed out; no conclusion.",
@@ -294,6 +310,7 @@ def _report(
         | {"compare_headers": list(spec.compare_headers)},
         "normalization_rules": [r.to_dict() for r in spec.rules],
         "normalization_totals": session.normalization_totals,
+        "isolation": iso,
         "outcome": outcome,
         "exit_code": EXIT_CODES[outcome],
         "summary": summary,

@@ -64,7 +64,7 @@ def test_wrong_id_is_detected_even_with_mapping(tmp_path):
     assert r["outcome"] == DIFFERENCE_CONFIRMED
     diffs = r["evidence"][-1]["differences"]
     # the reference id maps to <item#1>; the candidate's wrong id maps to nothing
-    assert any(d["path"] == "<body>/id" and d["reference"] == "<item#1>" for d in diffs)
+    assert any(d["path"] == "<body>/id" and d["reference"] == "<item#1:integer>" for d in diffs)
 
 
 def test_stateful_defect_found_minimized_verified_exported(tmp_path):
@@ -284,6 +284,7 @@ def test_external_service_connection_refused(tmp_path):
     for role in ("reference", "candidate"):
         data["services"][role] = {"base_url": f"http://127.0.0.1:{port}"}
     del data["state"]
+    data["unverified_initial_state"] = True
     p.write_text(yaml.safe_dump(data))
     r = go(p, tmp_path / "o")
     assert r["outcome"] == EXECUTION_ERROR
@@ -351,3 +352,158 @@ def test_services_are_cleaned_up_after_interruption(tmp_path, sig):
     while any(_alive(x) for x in pids) and time.monotonic() < deadline:
         time.sleep(0.05)
     assert not any(_alive(x) for x in pids)
+
+
+# ---------------------------------------------------------------- audit regressions
+
+
+def test_id_type_change_is_not_hidden_by_logical_mapping(tmp_path):
+    r = go(item_spec(tmp_path / "p", [], ["--string-ids"]), tmp_path / "o")
+    assert r["outcome"] == DIFFERENCE_CONFIRMED
+    d = r["evidence"][-1]["differences"]
+    assert any(
+        x["path"] == "<body>/id"
+        and x["reference"] == "<item#1:integer>"
+        and x["candidate"] == "<item#1:string>"
+        for x in d
+    )
+
+
+BLOB_OPS = [{"name": "get_blob", "method": "GET", "path": "/blob"}]
+
+
+def test_non_utf8_bodies_compared_byte_for_byte(tmp_path):
+    p = item_spec(
+        tmp_path / "p",
+        ["--blob", "ff"],
+        ["--blob", "fe"],
+        operations=BLOB_OPS,
+        extra={"entities": ["item"]},
+    )
+    r = go(p, tmp_path / "o")
+    assert r["outcome"] == DIFFERENCE_CONFIRMED
+    assert r["evidence"][-1]["differences"][0]["kind"] == "raw_body_changed"
+
+
+def test_json_vs_text_body_is_a_difference(tmp_path):
+    p = item_spec(
+        tmp_path / "p", ["--blob", b'"x"'.hex()], ["--blob", b"x".hex()], operations=BLOB_OPS
+    )
+    r = go(p, tmp_path / "o")
+    assert r["evidence"][-1]["differences"][0]["kind"] == "body_format_changed"
+
+
+def test_identical_raw_bodies_match(tmp_path):
+    p = item_spec(tmp_path / "p", ["--blob", "ff00"], ["--blob", "ff00"], operations=BLOB_OPS)
+    assert go(p, tmp_path / "o")["outcome"] == NO_DIFFERENCES_OBSERVED
+
+
+def _no_state(p):
+    data = yaml.safe_load(p.read_text())
+    del data["state"]
+    return data
+
+
+def test_external_services_without_state_need_explicit_unverified_flag(tmp_path):
+    from careo.config import ConfigError
+
+    p = item_spec(tmp_path / "p")
+    data = _no_state(p)
+    for role in ("reference", "candidate"):
+        data["services"][role] = {"base_url": "http://127.0.0.1:9"}
+    p.write_text(yaml.safe_dump(data))
+    with pytest.raises(ConfigError, match="unverified_initial_state"):
+        load_spec(p)
+    data["unverified_initial_state"] = True
+    p.write_text(yaml.safe_dump(data))
+    load_spec(p)
+
+
+def test_managed_services_without_state_are_restarted_each_scenario(tmp_path):
+    p = item_spec(tmp_path / "p", ["--memory"], ["--memory"])
+    data = _no_state(p)
+    data["services"]["reference"]["command"] += []
+    p.write_text(yaml.safe_dump(data))
+    # itemsvc needs its tables: point both at an empty db prepared per process start
+    for role in ("reference", "candidate"):
+        cmd = data["services"][role]["command"]
+        cmd[cmd.index("{db}")] = f"{role}.db"
+    p.write_text(yaml.safe_dump(data))
+    import sqlite3
+
+    from conftest import ITEM_SCHEMA
+
+    for role in ("reference", "candidate"):
+        c = sqlite3.connect(p.parent / f"{role}.db")
+        c.executescript(ITEM_SCHEMA)
+        c.close()
+    spec = load_spec(p)
+    s = Session(spec, tmp_path / "run")
+    s.prepare()
+    try:
+        create = {"op": "list_items", "params": {}, "query": {}}
+        s.run_sequence([create])
+        assert s.isolation()["processes_restarted_each_scenario"] is True
+        assert s.isolation()["database_reset_and_verified"] is False
+    finally:
+        s.teardown()
+
+
+def test_sqlite_reset_warns_about_in_memory_state(tmp_path):
+    r = go(item_spec(tmp_path / "p", generation={"max_scenarios": 5}), tmp_path / "o")
+    assert r["isolation"]["in_memory_state_reset"] is False
+    assert any("in-memory state can leak" in w for w in r["warnings"])
+    r = go(
+        item_spec(tmp_path / "q", state={"reset": "restart"}, generation={"max_scenarios": 5}),
+        tmp_path / "o2",
+    )
+    assert r["isolation"]["in_memory_state_reset"] is True
+    assert not any("leak" in w for w in r["warnings"])
+
+
+def test_external_service_db_is_reset_in_place(tmp_path):
+    """The service keeps its open database file; Careo must not delete/recreate it."""
+    import sqlite3
+
+    from conftest import ITEM_SCHEMA
+
+    from careo.adapters.http import parse_endpoint
+    from careo.execution.service import ManagedService, free_port
+
+    p = item_spec(tmp_path / "p")
+    data = yaml.safe_load(p.read_text())
+    services = []
+    try:
+        for role in ("reference", "candidate"):
+            db = p.parent / f"{role}.db"
+            c = sqlite3.connect(db)
+            c.executescript(ITEM_SCHEMA)
+            c.execute("INSERT INTO items VALUES (77, 'stale')")
+            c.commit()
+            c.close()
+            port = free_port()
+            svc = ManagedService(
+                role,
+                [sys.executable, "itemsvc.py", "--port", str(port), "--db", str(db)],
+                p.parent,
+                {},
+                parse_endpoint(f"http://127.0.0.1:{port}"),
+                "/health",
+                15,
+                tmp_path / f"{role}.log",
+            )
+            svc.start()
+            services.append(svc)
+            data["services"][role] = {
+                "base_url": f"http://127.0.0.1:{port}",
+                "db": f"{role}.db",
+                "reset_wipes_database": True,
+            }
+        p.write_text(yaml.safe_dump(data))
+        inode = (p.parent / "candidate.db").stat().st_ino
+        r = go(p, tmp_path / "o")
+        assert r["outcome"] == NO_DIFFERENCES_OBSERVED, (r["notes"], r["evidence"])
+        assert (p.parent / "candidate.db").stat().st_ino == inode
+    finally:
+        for svc in services:
+            svc.stop()

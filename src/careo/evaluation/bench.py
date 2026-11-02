@@ -144,8 +144,8 @@ def method_a(spec: ScenarioSpec, suite: dict[str, Any], work: Path) -> dict[str,
         for check in checks:
             try:
                 check(svc.endpoint.url)
-            except AssertionError as exc:
-                failures.append(f"{check.__name__}: {exc!s:.200}")
+            except Exception as exc:  # an erroring test is a failing test
+                failures.append(f"{check.__name__}: {type(exc).__name__}: {exc!s:.200}")
     except ServiceError as exc:
         return {"outcome": "EXECUTION_ERROR", "error": str(exc)}
     finally:
@@ -224,6 +224,11 @@ def summarize(records: list[dict[str, Any]], suite: dict[str, Any]) -> dict[str,
                 [r.get("time_to_first_difference_seconds") for r in detected]
             ),
             "total_operations_executed": sum(r.get("operations_executed") or 0 for r in rs),
+            "invalid_run_ids": [
+                f"{r['case']}/{r['method']}/seed{r['seed']}"
+                for r in rs
+                if r["outcome"] in INVALID_OUTCOMES
+            ],
             "total_search_operations": sum(
                 r.get("search_operations", r.get("operations_executed")) or 0 for r in rs
             ),
@@ -258,8 +263,9 @@ def render_markdown(summary: dict[str, Any], meta: dict[str, Any]) -> str:
         f"max steps (C, D): {meta['max_steps']}",
         "",
         "| Method | Seeded detection | Cases found | False alarms (clean) | Median ops to 1st | "
-        "Median len before → after shrink | Replay success | Total ops | Runtime s |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "Median len before → after shrink | Replay success | Search ops (budgeted) | "
+        "Total ops incl. shrink+verify | Runtime s |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
 
     def r(x: dict[str, Any]) -> str:
@@ -271,8 +277,8 @@ def render_markdown(summary: dict[str, Any], meta: dict[str, Any]) -> str:
             f"{r(s['false_alarms_on_clean'])} | {s['median_operations_to_first_difference']} | "
             f"{s['median_sequence_length_before_shrink']} → "
             f"{s['median_sequence_length_after_shrink']} | "
-            f"{r(s['replay_success'])} | {s['total_operations_executed']} | "
-            f"{s['total_runtime_seconds']} |"
+            f"{r(s['replay_success'])} | {s['total_search_operations']} | "
+            f"{s['total_operations_executed']} | {s['total_runtime_seconds']} |"
         )
     lines += [
         "",
@@ -288,9 +294,17 @@ def render_markdown(summary: dict[str, Any], meta: dict[str, Any]) -> str:
         )
     lines += [
         "",
-        "Notes: method A counts HTTP calls as operations. Its happy-path checks are the "
-        "example project's own tests. Invalid runs (reset failure or execution error) are "
-        "counted in denominators as not detected and listed in `invalid_runs`.",
+        "How to read this:",
+        "",
+        "- B, C and D share the same budget of *search* operations (operations spent "
+        "looking for the first difference). Shrinking and verification replays are extra "
+        "work, shown in the total column.",
+        "- A is NOT budget-equal: it is the example project's fixed happy-path suite "
+        "(its HTTP calls are counted as operations).",
+        "- D runs the same seeded search as C, so it detects exactly what C detects by "
+        "construction. What D adds is shorter, verified counterexamples, at extra cost.",
+        "- Runs that could not reset or execute are counted in denominators as not "
+        "detected and are listed by id in summary.json (`invalid_run_ids`).",
         "",
     ]
     return "\n".join(lines)

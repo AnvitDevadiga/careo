@@ -26,7 +26,7 @@ from careo.comparison import ComparisonPolicy, Difference, diff
 from careo.config import ConfigError
 from careo.execution.service import ManagedService, ServiceError, free_port
 from careo.jsonvalue import canonical
-from careo.normalize import WILDCARD, apply_rules, parse_pointer
+from careo.normalize import WILDCARD, apply_rules, json_type, parse_pointer
 from careo.scenarios.spec import IdPath, Operation, ScenarioSpec, ServiceSpec
 
 REF = "$ref"
@@ -89,6 +89,12 @@ def _set(value: Any, path: list[str | int], new: Any) -> Any:
     copy_list = list(value)
     copy_list[head] = _set(value[head], rest, new)  # type: ignore[index]
     return copy_list
+
+
+def id_marker(logical: str, actual: Any) -> str:
+    """Logical id plus the JSON type of the actual value, so an id whose type
+    changes (7 -> "7") is still reported even though both map to one entity."""
+    return f"<{logical}:{json_type(actual)}>"
 
 
 def _id_key(v: Any) -> str:
@@ -224,7 +230,7 @@ class Session:
                 st = self.spec.state
                 state = SqliteState(db, st.schema_sql, st.fixture_sql, st.tables)
                 try:
-                    state.prepare()
+                    state.prepare(recreate=svc.db is None)
                 except StateError as exc:
                     raise SetupError(str(exc)) from None
             service = None
@@ -263,6 +269,16 @@ class Session:
             if side.state:
                 side.state.teardown()
 
+    def isolation(self) -> dict[str, Any]:
+        st = self.spec.state
+        managed = all(s.service is not None for s in self.sides)
+        return {
+            "database_reset_and_verified": st is not None,
+            "processes_restarted_each_scenario": managed and (st is None or st.reset == "restart"),
+            "in_memory_state_reset": managed and (st is None or st.reset == "restart"),
+            "reset_request_hook": bool(st and st.reset_request),
+        }
+
     @property
     def ref(self) -> Side:
         return self.sides[0]
@@ -278,8 +294,10 @@ class Session:
         for side in self.sides:
             side.clear_ids()
             try:
+                # Without a state adapter the only way to reset a managed service is
+                # a fresh process; with reset: sqlite, in-memory state is NOT reset.
                 restart = side.service is not None and (
-                    (st is not None and st.reset == "restart") or not side.service.alive()
+                    st is None or st.reset == "restart" or not side.service.alive()
                 )
                 if restart and side.service:
                     side.service.stop()
@@ -341,7 +359,7 @@ class Session:
             for path, actual in _get_all(value, parse_pointer(ip.pointer)):
                 logical = side.logical_for(ip.entity, actual)
                 if logical is not None:
-                    value = _set(value, path, f"<{logical}>")
+                    value = _set(value, path, id_marker(logical, actual))
                     n += 1
         return value, n
 
@@ -357,7 +375,7 @@ class Session:
                     if col in new:
                         logical = side.logical_for(ent, new[col])
                         if logical is not None:
-                            new[col] = f"<{logical}>"
+                            new[col] = id_marker(logical, new[col])
                             self.id_translations += 1
                 rows.append(new)
             out[t.name] = rows
@@ -387,7 +405,7 @@ class Session:
         if resp.status != OK:
             return obs, None
         if not resp.body_is_json:
-            return obs, {"$text": resp.body_text}
+            return obs, None
         body, n = self._translate(side, resp.body_json, op.all_id_paths())
         self.id_translations += n
         body, counts = apply_rules(body, self.spec.rules)
@@ -446,7 +464,28 @@ class Session:
             rv, cv = r_resp.headers.get(h), c_resp.headers.get(h)
             if rv != cv:
                 diffs.append(Difference(f"<header>/{h}", "header_changed", rv, cv))
-        diffs += diff(r_body, c_body, self.spec.policy, path="<body>")
+        if r_resp.body_is_json != c_resp.body_is_json:
+            diffs.append(
+                Difference(
+                    "<body>",
+                    "body_format_changed",
+                    "json" if r_resp.body_is_json else "non-json",
+                    "json" if c_resp.body_is_json else "non-json",
+                )
+            )
+        elif r_resp.body_is_json:
+            diffs += diff(r_body, c_body, self.spec.policy, path="<body>")
+        elif r_resp.body_bytes != c_resp.body_bytes:
+            # non-JSON bodies are compared byte-for-byte (no decoding, no normalization)
+            diffs.append(
+                Difference(
+                    "<body>",
+                    "raw_body_changed",
+                    r_resp.body_text[:2000],
+                    c_resp.body_text[:2000],
+                    "byte-level difference",
+                )
+            )
         if op.expect_status:
             if r_resp.code not in op.expect_status:
                 notes.append(f"reference returned {r_resp.code}, outside declared expect_status")

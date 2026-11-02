@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import math
+from decimal import Decimal
 from typing import Any
 
 JSONValue = Any  # None | bool | int | float | str | list[JSONValue] | dict[str, JSONValue]
@@ -25,7 +27,26 @@ def _no_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-_DECODER = json.JSONDecoder(parse_constant=_reject_constant, object_pairs_hook=_no_duplicate_keys)
+def _parse_float(text: str) -> float:
+    value = float(text)
+    if math.isinf(value):
+        raise JSONParseError(f"number {text} is out of range for a 64-bit float")
+    # Careo compares numbers at double precision. Refuse literals whose exact value
+    # a double cannot hold (e.g. 0.10000000000000000001), rather than silently
+    # collapsing two different outputs to the same float and calling them equal.
+    if Decimal(repr(value)) != Decimal(text):
+        raise JSONParseError(
+            f"number {text} cannot be represented exactly as a 64-bit float "
+            "(Careo would lose precision comparing it)"
+        )
+    return value
+
+
+_DECODER = json.JSONDecoder(
+    parse_constant=_reject_constant,
+    object_pairs_hook=_no_duplicate_keys,
+    parse_float=_parse_float,
+)
 
 
 def parse_strict(data: bytes) -> JSONValue:

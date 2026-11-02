@@ -66,9 +66,14 @@ def test_pointer_unescape():
     assert parse_pointer("/a~1b/~0c") == ["a/b", "~c"]
 
 
+def test_candidate_cannot_spoof_a_mask_marker():
+    rules = (mask("/t", "ts"),)
+    a, _ = apply_rules({"t": 5}, rules)
+    b, _ = apply_rules({"t": "<careo:normalized:ts:integer>"}, rules)
+    assert [d.kind for d in diff(a, b, ComparisonPolicy())] == ["value_changed"]
+
+
 @given(st.dictionaries(st.text(max_size=3), st.integers(), max_size=5))
-def test_idempotent(v):
+def test_masking_is_deterministic(v):
     rules = (mask("/*"),)
-    once, _ = apply_rules(v, rules)
-    twice, _ = apply_rules(once, rules)
-    assert once == twice
+    assert apply_rules(v, rules) == apply_rules(v, rules)

@@ -9,7 +9,7 @@ from typing import Any
 
 from careo import __version__
 from careo.config import Config, ConfigError, load_config
-from careo.engine import EXIT_USAGE, MATCH, CaseResult, run_comparison
+from careo.engine import EXIT_EXECUTION_ERROR, EXIT_USAGE, MATCH, CaseResult, run_comparison
 from careo.replay import replay
 from careo.report import ReportError, load_report, write_reports
 
@@ -95,7 +95,10 @@ def cmd_replay(args: argparse.Namespace) -> int:
         for d in result.drift:
             print(f"  - {d}")
     else:
-        print("no drift: configuration, inputs, program files and environment match")
+        print(
+            "no drift detected in tracked identity (config, inputs, executables, argument "
+            "files, identity_files, Careo/Python/platform); untracked code is not checked"
+        )
     if args.output_dir:
         json_path, md_path = write_reports(result.new_report, Path(args.output_dir))
         print(f"replay reports: {json_path}  {md_path}")
@@ -153,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         _err(f"{type(exc).__name__}: {exc}")
         return EXIT_USAGE
+    except Exception as exc:  # never let an internal failure look like a result
+        _err(f"internal error: {type(exc).__name__}: {exc}")
+        return EXIT_EXECUTION_ERROR
     except KeyboardInterrupt:
         _err("interrupted")
         return 130

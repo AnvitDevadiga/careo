@@ -26,7 +26,8 @@ Safety measures that do exist:
 ## Comparison pipeline
 
 1. Encode the case input as UTF-8 JSON + newline and write it to stdin.
-2. Classify each run as `ok`, `failed`, `timeout` or `spawn_error`. A run is `ok`
+2. Parse strictly: floats must be finite and exactly representable as a double.
+   Classify each run as `ok`, `failed`, `timeout` or `spawn_error`. A run is `ok`
    only if the exit code is accepted and stdout is exactly one strict JSON value.
 3. Apply normalization rules to `ok` outputs. Each rule records how many values it changed;
    a rule that changes nothing in the whole run produces a report warning.
@@ -55,8 +56,9 @@ normalized output).
 `careo replay` loads the current config (recorded path or `--config`), replays
 the **recorded** inputs, and reports drift separately from divergence:
 
-- drift: policy fingerprint, cases file, executable path or hash, argument-file
-  hashes, Careo/Python/platform version
+- drift: policy fingerprint, cases file, executable path or hash, hashes of file
+  arguments and of `identity_files` (files or directory trees),
+  Careo/Python/platform version. Code outside these is not tracked.
 - divergence: any case whose outcome or set of differences changed
 
 Drift alone does not fail replay. Divergence does (exit 1).

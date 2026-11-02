@@ -59,6 +59,7 @@ class ProgramSpec:
     cwd_rel: str
     env: tuple[tuple[str, str], ...]  # explicit values from config
     inherit_env: tuple[str, ...]
+    identity_files: tuple[str, ...] = ()
 
     def child_env(self) -> dict[str, str]:
         env = {k: os.environ[k] for k in self.inherit_env if k in os.environ}
@@ -73,6 +74,7 @@ class ProgramSpec:
             "cwd": self.cwd_rel,
             "env_names": sorted(k for k, _ in self.env),
             "inherit_env": list(self.inherit_env),
+            "identity_files": list(self.identity_files),
         }
 
 
@@ -324,7 +326,7 @@ def _load_rules(raw: Any) -> tuple[NormalizationRule, ...]:
 
 
 def _load_program(raw: Any, role: str, base: Path) -> ProgramSpec:
-    d = _check_keys(raw, role, {"command", "cwd"}, {"name", "env", "inherit_env"})
+    d = _check_keys(raw, role, {"command", "cwd"}, {"name", "env", "inherit_env", "identity_files"})
     name = _str(d.get("name", role), f"{role}.name")
     cmd_raw = d["command"]
     if isinstance(cmd_raw, str):
@@ -356,6 +358,17 @@ def _load_program(raw: Any, role: str, base: Path) -> ProgramSpec:
             raise ConfigError(f"{role}.inherit_env: invalid variable name {k!r}")
         inherit.append(k)
 
+    ident_raw = d.get("identity_files", [])
+    if not isinstance(ident_raw, list):
+        raise ConfigError(f"{role}.identity_files must be a list of paths")
+    identity: list[str] = []
+    for k, rel in enumerate(ident_raw):
+        where = f"{role}.identity_files[{k}]"
+        p = contained_path(base, _str(rel, where), where)
+        if not p.exists():
+            raise ConfigError(f"{where}: {rel!r} does not exist")
+        identity.append(str(p.relative_to(base)))
+
     spec = ProgramSpec(
         role,
         name,
@@ -365,6 +378,7 @@ def _load_program(raw: Any, role: str, base: Path) -> ProgramSpec:
         str(cwd.relative_to(base)) or ".",
         tuple(env),
         tuple(inherit),
+        tuple(identity),
     )
     executable = resolve_executable(command[0], spec, base)
     return replace(spec, argv=(str(executable), *command[1:]))

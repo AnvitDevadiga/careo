@@ -133,8 +133,6 @@ def _transform(
     value: JSONValue, rule: NormalizationRule, compiled: re.Pattern[str] | None
 ) -> tuple[JSONValue, int]:
     if rule.action == "mask":
-        if isinstance(value, str) and value.startswith(f"<careo:normalized:{rule.id}:"):
-            return value, 1  # already masked: keep the original type tag (idempotent)
         return mask_marker(rule.id, value), 1
     # regex: only string values are rewritten; other types are left untouched so a
     # type change at a normalized path is still reported.

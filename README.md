@@ -32,7 +32,8 @@ Any language works: Careo only starts processes.
 ```yaml
 # careo.yaml
 version: 1
-reference: {name: original,  command: ["python3", "original.py"], cwd: .}
+reference: {name: original,  command: ["python3", "original.py"], cwd: .,
+            identity_files: [lib]}   # extra code to hash for replay drift detection
 candidate: {name: rewrite,   command: ["./rewrite"],             cwd: .}
 cases: {file: cases.jsonl}        # one {"id": ..., "input": ...} per line
 comparison:
@@ -57,7 +58,7 @@ careo replay   --report careo-report/report.json [--config careo.yaml] [--output
 
 Exit codes for `compare` and `inspect`: `0` every case matched · `1` at least
 one difference or failure · `2` invalid config, report or usage · `3` a
-program could not be executed. `replay` returns `0` if every outcome and
+program could not be executed, or Careo hit an internal error. `replay` returns `0` if every outcome and
 difference reproduced, `1` if not.
 
 ## Example difference
@@ -133,8 +134,13 @@ See [docs/design.md](docs/design.md) for the execution model and report schema.
   `setsid` itself can escape it (reported as a failure if it holds the pipes).
 - Environment variable values are never written to reports or fingerprints.
   As a result, replay cannot detect a change to an env value.
-- `array_order: ignore` compares elements by exact canonical JSON, so float
-  tolerance does not apply inside unordered arrays.
+- Numbers are compared as 64-bit floats. Output containing a float literal that
+  a double cannot hold exactly (`1e400`, `0.10000000000000000001`) counts as a
+  failed run, never as a match. Integers are compared exactly at any size.
+- `array_order: ignore` compares elements by exact canonical JSON, so
+  `float_abs_tolerance` and `numbers: numeric` do not apply inside unordered arrays.
+- Replay drift detection covers the executable, file arguments, and any
+  `identity_files` you list. Imported modules that are not listed are not tracked.
 - `mask` hides value changes (not type or presence changes) at that path, by design.
 - Linux and macOS only. Windows is untested.
 

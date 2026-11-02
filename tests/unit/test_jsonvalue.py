@@ -41,3 +41,10 @@ def test_canonical_sorts_keys() -> None:
 def test_ensure_json_value_rejects(bad: object) -> None:
     with pytest.raises(ValueError):
         ensure_json_value(bad, "x")
+
+
+def test_exact_floats_accepted():
+    assert parse_strict(b"0.1") == 0.1
+    assert parse_strict(b"0.30000000000000004") == 0.1 + 0.2
+    assert parse_strict(b"1.5e3") == 1500.0
+    assert parse_strict(b"-0.0") == 0.0

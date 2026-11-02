@@ -225,8 +225,11 @@ def run_case(case: Case, config: Config) -> CaseResult:
 
 def sha256_file(path: Path) -> str | None:
     try:
-        if not path.is_file() or path.stat().st_size > _HASH_FILE_LIMIT:
+        if not path.is_file():
             return None
+        st = path.stat()
+        if st.st_size > _HASH_FILE_LIMIT:
+            return f"unhashed:size={st.st_size}:mtime_ns={st.st_mtime_ns}"
         h = hashlib.sha256()
         with path.open("rb") as fh:
             for chunk in iter(lambda: fh.read(1 << 20), b""):
@@ -234,6 +237,17 @@ def sha256_file(path: Path) -> str | None:
         return "sha256:" + h.hexdigest()
     except OSError:
         return None
+
+
+def _hash_tree(path: Path) -> str | None:
+    if path.is_file():
+        return sha256_file(path)
+    if not path.is_dir():
+        return None
+    h = hashlib.sha256()
+    for f in sorted(p for p in path.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
+        h.update(f"{f.relative_to(path).as_posix()}\0{sha256_file(f)}\0".encode())
+    return "sha256-tree:" + h.hexdigest()
 
 
 def program_identity(spec: ProgramSpec, base: Path) -> dict[str, Any]:
@@ -249,6 +263,8 @@ def program_identity(spec: ProgramSpec, base: Path) -> dict[str, Any]:
             except ValueError:
                 label = str(candidate)
             files[label] = sha256_file(candidate)
+    for rel in spec.identity_files:
+        files[rel] = _hash_tree(base / rel)
     return {
         **spec.to_public_dict(),
         "resolved_executable": str(exe),

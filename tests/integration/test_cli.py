@@ -302,3 +302,58 @@ def test_console_script_entry_point(project, tmp_path):
         env={**os.environ},
     )
     assert r.returncode == 0, r.stderr
+
+
+def test_out_of_range_numbers_never_match(project, tmp_path):
+    cfg = project(
+        [
+            {"id": "inf", "input": {"ref": {"raw": "1e400"}, "cand": {"raw": "2e400"}}},
+            {
+                "id": "precision",
+                "input": {"ref": {"raw": "0.1"}, "cand": {"raw": "0.10000000000000000001"}},
+            },
+        ]
+    )
+    code, report = compare(cfg, tmp_path / "out")
+    assert code == 1
+    assert outcomes(report) == {"inf": "BOTH_FAILED", "precision": "CANDIDATE_FAILED"}
+
+
+def test_internal_error_exits_3(project, tmp_path, monkeypatch, capsys):
+    import careo.cli
+
+    def boom(*a, **k):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(careo.cli, "run_comparison", boom)
+    cfg = project([{"id": "a", "input": {"value": 1}}])
+    assert main(["compare", "--config", str(cfg), "--output-dir", str(tmp_path / "o")]) == 3
+    assert "internal error" in capsys.readouterr().err
+
+
+def test_replay_tracks_identity_files(project, tmp_path, capsys):
+    import yaml
+
+    cfg = project([{"id": "a", "input": {"value": 1}}])
+    (cfg.parent / "lib").mkdir()
+    (cfg.parent / "lib" / "helper.py").write_text("X = 1\n")
+    data = yaml.safe_load(cfg.read_text())
+    data["reference"]["identity_files"] = ["lib"]
+    cfg.write_text(yaml.safe_dump(data))
+    compare(cfg, tmp_path / "out")
+    (cfg.parent / "lib" / "helper.py").write_text("X = 2\n")
+    assert main(["replay", "--report", str(tmp_path / "out" / "report.json")]) == 0
+    assert "file lib contents changed" in capsys.readouterr().out
+
+
+def test_identity_files_must_be_contained(project, tmp_path):
+    import yaml
+
+    from careo.config import ConfigError, load_config
+
+    cfg = project([{"id": "a", "input": 1}])
+    data = yaml.safe_load(cfg.read_text())
+    data["candidate"]["identity_files"] = ["../"]
+    cfg.write_text(yaml.safe_dump(data))
+    with pytest.raises(ConfigError, match="outside"):
+        load_config(cfg)

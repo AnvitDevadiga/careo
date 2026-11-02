@@ -1,15 +1,15 @@
 {
   "meta": {
     "careo_version": "0.2.0",
-    "git_commit": "319eac288de83b724db8fa78051c920c1ca54e97",
+    "git_commit": "b489acee4bed8bb93310274c1e6c45bdee880929",
     "environment": {
       "careo_version": "0.2.0",
       "python": "3.13.15",
       "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
       "machine": "arm64"
     },
-    "started_at": "2026-11-02T09:10:28.538074+00:00",
-    "finished_at": "2026-11-02T09:13:48.475047+00:00",
+    "started_at": "2026-11-02T09:50:07.416391+00:00",
+    "finished_at": "2026-11-02T09:53:25.214204+00:00",
     "seeds": 5,
     "quick": false,
     "budget_operations": 400,
@@ -101,7 +101,7 @@
         "denominator": 0,
         "rate": null
       },
-      "total_runtime_seconds": 0.55
+      "total_runtime_seconds": 0.561
     },
     "B_single_operation": {
       "runs": 40,
@@ -164,7 +164,7 @@
         }
       },
       "median_operations_to_first_difference": 20,
-      "median_time_to_first_difference_seconds": 0.171,
+      "median_time_to_first_difference_seconds": 0.175,
       "total_operations_executed": 14150,
       "invalid_run_ids": [],
       "total_search_operations": 14098,
@@ -175,7 +175,7 @@
         "denominator": 5,
         "rate": 1.0
       },
-      "total_runtime_seconds": 44.08
+      "total_runtime_seconds": 43.779
     },
     "C_stateful": {
       "runs": 40,
@@ -238,7 +238,7 @@
         }
       },
       "median_operations_to_first_difference": 104.0,
-      "median_time_to_first_difference_seconds": 0.218,
+      "median_time_to_first_difference_seconds": 0.207,
       "total_operations_executed": 9260,
       "invalid_run_ids": [],
       "total_search_operations": 7872,
@@ -249,7 +249,7 @@
         "denominator": 30,
         "rate": 1.0
       },
-      "total_runtime_seconds": 20.671
+      "total_runtime_seconds": 20.363
     },
     "D_stateful_shrinking": {
       "runs": 40,
@@ -312,7 +312,7 @@
         }
       },
       "median_operations_to_first_difference": 104.0,
-      "median_time_to_first_difference_seconds": 0.219,
+      "median_time_to_first_difference_seconds": 0.204,
       "total_operations_executed": 117362,
       "invalid_run_ids": [],
       "total_search_operations": 7872,
@@ -323,7 +323,7 @@
         "denominator": 30,
         "rate": 1.0
       },
-      "total_runtime_seconds": 134.538
+      "total_runtime_seconds": 132.991
     }
   }
 }

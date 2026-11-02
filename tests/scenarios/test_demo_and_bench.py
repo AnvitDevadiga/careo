@@ -146,3 +146,24 @@ def test_bench_unit_tests_that_error_count_as_failures(tmp_path):
     spec = variant_spec(load_spec(suite["base_spec"]), suite, "none")
     res = method_a(spec, suite, tmp_path)
     assert res["detected"] is True and "ConnectionResetError" in res["failures"][0]
+
+
+def test_identical_services_never_flagged_when_budget_runs_out(tmp_path):
+    """Regression: budget exhaustion made Hypothesis report Flaky with no difference,
+    which was misclassified as DIFFERENCE_FLAKY (reference compared with itself)."""
+    from careo.evaluation.bench import load_suite, variant_spec
+    from careo.scenarios.runner import NO_DIFFERENCES_OBSERVED, run
+    from careo.scenarios.spec import Generation, load_spec
+
+    suite = load_suite(REPO / "benchmarks" / "booking" / "suite.yaml")
+    spec = variant_spec(load_spec(suite["base_spec"]), suite, None)
+    gen = Generation(
+        seed=1003,
+        max_steps=25,
+        shrink=False,
+        replay_checks=3,
+        max_operations=400,
+        max_scenarios=400,
+    )
+    r = run(spec.with_generation(gen), tmp_path)
+    assert r["outcome"] == NO_DIFFERENCES_OBSERVED, (r["notes"], r["evidence"])

@@ -222,9 +222,17 @@ def run(spec: ScenarioSpec, out_dir: Path) -> dict[str, Any]:
     elif rec.abort:
         outcome = EXECUTION_ERROR
         notes.append(rec.abort)
-    elif flaky:
+    elif flaky and rec.first_failure is not None:
         outcome = DIFFERENCE_FLAKY
         notes.append("Hypothesis could not reproduce a failure while shrinking (flaky)")
+    elif flaky:
+        # Hypothesis-internal flakiness (e.g. generation changed once the operation budget
+        # ran out) with no observed behavioral difference is not a finding.
+        outcome = NO_DIFFERENCES_OBSERVED if session.operations_executed else INCONCLUSIVE
+        notes.append(
+            "Hypothesis reported inconsistent generation without any observed "
+            "behavioral difference (typically caused by the operation budget)"
+        )
     elif session.operations_executed == 0:
         outcome = INCONCLUSIVE
         notes.append("no operations were executed")

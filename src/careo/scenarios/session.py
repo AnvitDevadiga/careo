@@ -91,6 +91,13 @@ def _set(value: Any, path: list[str | int], new: Any) -> Any:
     return copy_list
 
 
+def _show(data: bytes, limit: int = 2000) -> str:
+    try:
+        return data[:limit].decode("utf-8")
+    except UnicodeDecodeError:
+        return "hex:" + data[:limit].hex()
+
+
 def id_marker(logical: str, actual: Any) -> str:
     """Logical id plus the JSON type of the actual value, so an id whose type
     changes (7 -> "7") is still reported even though both map to one entity."""
@@ -481,8 +488,8 @@ class Session:
                 Difference(
                     "<body>",
                     "raw_body_changed",
-                    r_resp.body_text[:2000],
-                    c_resp.body_text[:2000],
+                    _show(r_resp.body_bytes),
+                    _show(c_resp.body_bytes),
                     "byte-level difference",
                 )
             )

@@ -382,7 +382,9 @@ def test_non_utf8_bodies_compared_byte_for_byte(tmp_path):
     )
     r = go(p, tmp_path / "o")
     assert r["outcome"] == DIFFERENCE_CONFIRMED
-    assert r["evidence"][-1]["differences"][0]["kind"] == "raw_body_changed"
+    d = r["evidence"][-1]["differences"][0]
+    assert d["kind"] == "raw_body_changed"
+    assert (d["reference"], d["candidate"]) == ("hex:ff", "hex:fe")
 
 
 def test_json_vs_text_body_is_a_difference(tmp_path):

@@ -1,0 +1,82 @@
+# Careo stateful demo: reference booking API vs. an AI-rewrite-style candidate
+# with a deliberately seeded retry-cancellation regression. See README.md.
+version: 1
+
+services:
+  reference:
+    name: reference
+    command: ["python3", "app_reference.py", "--port", "{port}", "--db", "{db}"]
+    base_url: http://127.0.0.1:{port}
+    ready_path: /health
+  candidate:
+    name: ai-rewrite
+    command: ["python3", "app_candidate.py", "--port", "{port}", "--db", "{db}"]
+    base_url: http://127.0.0.1:{port}
+    ready_path: /health
+
+state:
+  kind: sqlite
+  schema: schema.sql
+  fixture: seed.sql
+  reset: sqlite          # Careo wipes and reloads the DB, then verifies it
+  compare: each_step     # compare persistent state after every operation
+  tables:
+    - name: bookings
+      id_columns: {id: booking}
+    - name: events
+      ignore_columns: [id]            # internal autoincrement counter
+      id_columns: {booking_id: booking}
+
+entities: [booking]
+
+operations:
+  - name: create_booking
+    method: POST
+    path: /bookings
+    body:
+      customer: {sampled_from: ["ana", "bo", "chen"]}
+      slot: {sampled_from: ["08:00", "09:00", "10:00", "11:00"]}
+    produces: {entity: booking, pointer: /id}
+    expect_status: [201, 409]
+  - name: get_booking
+    method: GET
+    path: /bookings/{id}
+    params: {id: {bundle: booking}}
+    ids: [{entity: booking, pointer: /id}]
+  # Raw ids: only the fixture booking (1) and an id no implementation will
+  # generate. Raw ids of *generated* entities differ legitimately between
+  # implementations; use {bundle: booking} to reach those.
+  - name: get_raw_booking
+    method: GET
+    path: /bookings/{id}
+    params: {id: {sampled_from: [1, 999999]}}
+  - name: cancel_booking
+    method: POST
+    path: /bookings/{id}/cancel
+    params: {id: {bundle: booking}}
+    ids: [{entity: booking, pointer: /id}]
+  - name: reschedule_booking
+    method: PATCH
+    path: /bookings/{id}
+    params: {id: {bundle: booking}}
+    body:
+      slot: {sampled_from: ["08:00", "09:00", "10:00", "11:00"]}
+    ids: [{entity: booking, pointer: /id}]
+  - name: list_bookings
+    method: GET
+    path: /bookings
+    query:
+      limit: {integers: {min: 1, max: 3}}
+      offset: {integers: {min: 0, max: 3}}
+    ids: [{entity: booking, pointer: /items/*/id}]
+
+http:
+  timeout_seconds: 5
+  compare_headers: [content-type]
+
+generation:
+  seed: 20261102
+  max_scenarios: 200
+  max_steps: 25
+  shrink: true
+  replay_checks: 3

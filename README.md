@@ -102,8 +102,9 @@ regression test.
 ```console
 $ careo scenario run --spec examples/booking-api/careo-scenarios.yaml --output-dir out
 careo 0.2.0: stateful run, seed 20261102, up to 200 scenarios x 25 steps
-DIFFERENCE_CONFIRMED: A behavioral difference was found and its minimized sequence reproduced on every verification replay from a clean, verified state.
-scenarios=381 operations=2962 resets=384 runtime=3.0s
+DIFFERENCE_CONFIRMED: A behavioral difference was found and its minimized sequence reproduced on every verification replay after a reset (see isolation).
+scenarios=381 operations=2981 resets=395 runtime=3.045s
+warning: database state was reset and verified, but service processes were not restarted: in-memory state can leak across scenarios (use reset: restart)
 original sequence: 13 operations; minimized: 3 operations; verified 3/3
   0. {"op": "create_booking", "params": {}, "query": {}, "body": {"customer": "ana", "slot": "09:00"}}
   1. {"op": "cancel_booking", "params": {"id": {"$ref": "booking#1"}}, "query": {}}
@@ -111,7 +112,7 @@ original sequence: 13 operations; minimized: 3 operations; verified 3/3
      <status>: status_changed: 409 -> 200
      <body>/error: missing_in_candidate: "already_cancelled" -> (absent)
      ...
-     <db>/events/3: extra_in_candidate: (absent) -> {"booking_id": "<booking#1>", "kind": "cancelled"}
+     <db>/events/3: extra_in_candidate: (absent) -> {"booking_id": "<booking#1:integer>", "kind": "cancelled"}
 exported: out/regression.json
 exported: out/test_careo_regression.py
 ```
@@ -120,13 +121,41 @@ The candidate's seeded bug: a retried cancellation succeeds and records a
 second "cancelled" event. It was **deliberately planted** in
 `examples/booking-api/app_candidate.py`, and the example's own happy-path tests
 pass against both implementations. The candidate also numbers bookings
-differently (8000, 8003, …). Logical-id mapping (`booking#1` → 2 / 8000) keeps
+differently (8000, 8003, …). Logical-id mapping (`booking#1` → 2 / 8000, shown as `<booking#1:integer>`) keeps
 that from being reported as a difference, while a genuinely wrong id still is.
 
 Other commands: `careo scenario validate`, `careo scenario replay --scenario
 regression.json`, `careo scenario minimize`, and `careo bench`. See
 [docs/stateful.md](docs/stateful.md) for the spec format, the reset lifecycle,
 verdicts, the OpenAPI subset and the security model.
+
+## Benchmark (seeded fixtures)
+
+Six regressions were **deliberately seeded** into an independent rewrite of the
+booking API. Two clean candidates (a clean rewrite with different ids, and the
+reference against itself) measure false alarms. Each case ran 5 seeds, with an
+equal budget of 400 search operations for methods B–D. These are the real
+results from `benchmarks/results/latest`:
+
+| Method | Seeded detection | Cases found | False alarms | Median sequence length (before → after shrink) |
+|---|---|---|---|---|
+| A. Example happy-path unit tests | 1/6 cases | 1/6 | 0/2 | n/a |
+| B. Single-operation random | 5/30 runs | 1/6 | 0/10 | 1 → 1 |
+| C. Stateful differential | 30/30 runs | 6/6 | 0/10 | 11.5 → 11.5 |
+| D. Stateful + shrinking | 30/30 runs | 6/6 | 0/10 | 11.5 → 2.5 |
+
+How to read the table:
+
+- **A is not budget-equal.** It is the example project's fixed test suite.
+- **D detects exactly what C does.** It runs the same seeded search; what it adds
+  is shorter counterexamples, every one replay-verified (30/30), at roughly 13×
+  more total operations.
+- **Small budgets miss things.** In smaller trial runs (150 operations, quick mode),
+  C and D missed `missing_error` because Hypothesis front-loads simple values.
+
+These numbers describe these fixtures only. They are not evidence of
+effectiveness on real migrations. Raw per-run records, configurations and the
+commit are in [benchmarks/](benchmarks/).
 
 ## Outcomes
 

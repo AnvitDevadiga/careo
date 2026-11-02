@@ -17,8 +17,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python: ["3.11", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
@@ -34,8 +34,8 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.12"
       - name: Build sdist and wheel
@@ -71,8 +71,8 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.12"
       - run: uv sync --locked
@@ -80,3 +80,33 @@ jobs:
         run: uv run careo bench --suite benchmarks/booking/suite.yaml --quick --output-dir /tmp/bench
       - name: Committed benchmark records are consistent
         run: uv run python benchmarks/check_results.py benchmarks/results/latest
+      - name: Website data is current and traces to the raw records
+        run: uv run python scripts/build_site_data.py --check
+      - name: Published demo evidence still reproduces
+        run: uv run python scripts/capture_demo.py --verify
+
+  site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Internal link check
+        run: npm run check:links
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser QA (5 widths, themes, keyboard, axe, demo, downloads)
+        run: npm run e2e

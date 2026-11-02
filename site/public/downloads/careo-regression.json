@@ -1,0 +1,38 @@
+{
+  "schema": "careo.scenario",
+  "schema_version": 1,
+  "spec_path": "<repo>/examples/booking-api/careo-scenarios.yaml",
+  "spec_relative": null,
+  "spec_fingerprint": "sha256:ab7479b3e15381778e1a7cea0d336c913500810d32e1ad5c4e8f85206d19db07",
+  "steps": [
+    {
+      "op": "create_booking",
+      "params": {},
+      "query": {},
+      "body": {
+        "customer": "ana",
+        "slot": "09:00"
+      }
+    },
+    {
+      "op": "cancel_booking",
+      "params": {
+        "id": {
+          "$ref": "booking#1"
+        }
+      },
+      "query": {}
+    },
+    {
+      "op": "cancel_booking",
+      "params": {
+        "id": {
+          "$ref": "booking#1"
+        }
+      },
+      "query": {}
+    }
+  ],
+  "recorded_outcome": "DIFFERENCE_CONFIRMED",
+  "expected_failure_signature": "[\"cancel_booking\",\"MISMATCH\",[[\"<body>/customer\",\"extra_in_candidate\"],[\"<body>/error\",\"missing_in_candidate\"],[\"<body>/id\",\"extra_in_candidate\"],[\"<body>/slot\",\"extra_in_candidate\"],[\"<body>/status\",\"extra_in_candidate\"],[\"<db>/events/3\",\"extra_in_candidate\"],[\"<status>\",\"status_changed\"]]]"
+}

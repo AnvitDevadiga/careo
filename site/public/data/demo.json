@@ -1,0 +1,665 @@
+{
+ "generated_from": {
+  "report": "benchmarks/results/demo/scenario-report.json",
+  "report_sha256": "sha256:13910749b66a08a078a8c95570c9a74172d51cbf996d9109eded11b69c19ae8a",
+  "precomputed": true,
+  "note": "Recorded from a real run of `careo scenario run` against the two booking services. The browser replays this recording; it does not run Python."
+ },
+ "careo_version": "0.2.0",
+ "outcome": "DIFFERENCE_CONFIRMED",
+ "summary": "A behavioral difference was found and its minimized sequence reproduced on every verification replay after a reset (see isolation).",
+ "isolation": {
+  "database_reset_and_verified": true,
+  "processes_restarted_each_scenario": false,
+  "in_memory_state_reset": false,
+  "reset_request_hook": false
+ },
+ "warnings": [
+  "database state was reset and verified, but service processes were not restarted: in-memory state can leak across scenarios (use reset: restart)"
+ ],
+ "generation": {
+  "seed": 20261102,
+  "max_scenarios": 200,
+  "max_steps": 25,
+  "shrink": true,
+  "replay_checks": 3,
+  "max_operations": null
+ },
+ "stats": {
+  "scenarios_generated": 381,
+  "operations_executed": 2981,
+  "search_operations": 138,
+  "requests_sent": 5962,
+  "resets": 395,
+  "id_translations": 13866,
+  "time_to_first_difference_seconds": 0.2352554160006548,
+  "operations_to_first_difference": 138,
+  "runtime_seconds": 2.843,
+  "hypothesis_flaky": false
+ },
+ "original_sequence": {
+  "length": 13,
+  "steps": [
+   {
+    "op": "get_raw_booking",
+    "params": {
+     "id": 1
+    },
+    "query": {}
+   },
+   {
+    "op": "create_booking",
+    "params": {},
+    "query": {},
+    "body": {
+     "customer": "bo",
+     "slot": "11:00"
+    }
+   },
+   {
+    "op": "get_raw_booking",
+    "query": {},
+    "params": {
+     "id": 1
+    }
+   },
+   {
+    "op": "list_bookings",
+    "params": {},
+    "query": {
+     "limit": 1,
+     "offset": 1
+    }
+   },
+   {
+    "op": "get_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   },
+   {
+    "op": "reschedule_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "body": {
+     "slot": "08:00"
+    },
+    "query": {}
+   },
+   {
+    "op": "reschedule_booking",
+    "query": {},
+    "body": {
+     "slot": "10:00"
+    },
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    }
+   },
+   {
+    "op": "list_bookings",
+    "query": {
+     "offset": 1,
+     "limit": 2
+    },
+    "params": {}
+   },
+   {
+    "op": "reschedule_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {},
+    "body": {
+     "slot": "08:00"
+    }
+   },
+   {
+    "op": "cancel_booking",
+    "query": {},
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    }
+   },
+   {
+    "op": "reschedule_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "body": {
+     "slot": "09:00"
+    },
+    "query": {}
+   },
+   {
+    "op": "list_bookings",
+    "params": {},
+    "query": {
+     "offset": 0,
+     "limit": 3
+    }
+   },
+   {
+    "op": "cancel_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   }
+  ]
+ },
+ "minimized_sequence": {
+  "length": 3,
+  "steps": [
+   {
+    "op": "create_booking",
+    "params": {},
+    "query": {},
+    "body": {
+     "customer": "ana",
+     "slot": "09:00"
+    }
+   },
+   {
+    "op": "cancel_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   },
+   {
+    "op": "cancel_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   }
+  ],
+  "method": "hypothesis-shrink + bounded delta debugging",
+  "claim": "smaller reproducing sequence; not proven globally minimal"
+ },
+ "verification": {
+  "checks": 3,
+  "reproduced": 3
+ },
+ "evidence": [
+  {
+   "index": 0,
+   "step": {
+    "op": "create_booking",
+    "params": {},
+    "query": {},
+    "body": {
+     "customer": "ana",
+     "slot": "09:00"
+    }
+   },
+   "verdict": "MATCH",
+   "differences": [],
+   "notes": [],
+   "produced": "booking#1",
+   "state": {
+    "reference": {
+     "bookings": [
+      {
+       "id": 1,
+       "customer": "existing",
+       "slot": "08:00",
+       "status": "active"
+      },
+      {
+       "id": "<booking#1:integer>",
+       "customer": "ana",
+       "slot": "09:00",
+       "status": "active"
+      }
+     ],
+     "events": [
+      {
+       "booking_id": 1,
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "created"
+      }
+     ]
+    },
+    "candidate": {
+     "bookings": [
+      {
+       "id": 1,
+       "customer": "existing",
+       "slot": "08:00",
+       "status": "active"
+      },
+      {
+       "id": "<booking#1:integer>",
+       "customer": "ana",
+       "slot": "09:00",
+       "status": "active"
+      }
+     ],
+     "events": [
+      {
+       "booking_id": 1,
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "created"
+      }
+     ]
+    }
+   },
+   "reference": {
+    "status": "ok",
+    "duration_seconds": 0.000554,
+    "code": 201,
+    "headers": {
+     "server": "BaseHTTP/0.6 Python/3.13.15",
+     "date": "Mon, 02 Nov 2026 10:18:12 GMT",
+     "content-type": "application/json",
+     "content-length": "65"
+    },
+    "body": {
+     "id": 2,
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "active"
+    },
+    "compared_body": {
+     "id": "<booking#1:integer>",
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "active"
+    }
+   },
+   "candidate": {
+    "status": "ok",
+    "duration_seconds": 0.000538,
+    "code": 201,
+    "headers": {
+     "server": "BaseHTTP/0.6 Python/3.13.15",
+     "date": "Mon, 02 Nov 2026 10:18:12 GMT",
+     "content-type": "application/json",
+     "content-length": "68"
+    },
+    "body": {
+     "id": 8000,
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "active"
+    },
+    "compared_body": {
+     "id": "<booking#1:integer>",
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "active"
+    }
+   }
+  },
+  {
+   "index": 1,
+   "step": {
+    "op": "cancel_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   },
+   "verdict": "MATCH",
+   "differences": [],
+   "notes": [],
+   "produced": null,
+   "state": {
+    "reference": {
+     "bookings": [
+      {
+       "id": 1,
+       "customer": "existing",
+       "slot": "08:00",
+       "status": "active"
+      },
+      {
+       "id": "<booking#1:integer>",
+       "customer": "ana",
+       "slot": "09:00",
+       "status": "cancelled"
+      }
+     ],
+     "events": [
+      {
+       "booking_id": 1,
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "cancelled"
+      }
+     ]
+    },
+    "candidate": {
+     "bookings": [
+      {
+       "id": 1,
+       "customer": "existing",
+       "slot": "08:00",
+       "status": "active"
+      },
+      {
+       "id": "<booking#1:integer>",
+       "customer": "ana",
+       "slot": "09:00",
+       "status": "cancelled"
+      }
+     ],
+     "events": [
+      {
+       "booking_id": 1,
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "cancelled"
+      }
+     ]
+    }
+   },
+   "reference": {
+    "status": "ok",
+    "duration_seconds": 0.000571,
+    "code": 200,
+    "headers": {
+     "server": "BaseHTTP/0.6 Python/3.13.15",
+     "date": "Mon, 02 Nov 2026 10:18:12 GMT",
+     "content-type": "application/json",
+     "content-length": "68"
+    },
+    "body": {
+     "id": 2,
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "cancelled"
+    },
+    "compared_body": {
+     "id": "<booking#1:integer>",
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "cancelled"
+    }
+   },
+   "candidate": {
+    "status": "ok",
+    "duration_seconds": 0.000569,
+    "code": 200,
+    "headers": {
+     "server": "BaseHTTP/0.6 Python/3.13.15",
+     "date": "Mon, 02 Nov 2026 10:18:12 GMT",
+     "content-type": "application/json",
+     "content-length": "71"
+    },
+    "body": {
+     "id": 8000,
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "cancelled"
+    },
+    "compared_body": {
+     "id": "<booking#1:integer>",
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "cancelled"
+    }
+   }
+  },
+  {
+   "index": 2,
+   "step": {
+    "op": "cancel_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   },
+   "verdict": "MISMATCH",
+   "differences": [
+    {
+     "path": "<status>",
+     "kind": "status_changed",
+     "reference": 409,
+     "candidate": 200
+    },
+    {
+     "path": "<body>/error",
+     "kind": "missing_in_candidate",
+     "reference": "already_cancelled"
+    },
+    {
+     "path": "<body>/id",
+     "kind": "extra_in_candidate",
+     "candidate": "<booking#1:integer>"
+    },
+    {
+     "path": "<body>/customer",
+     "kind": "extra_in_candidate",
+     "candidate": "ana"
+    },
+    {
+     "path": "<body>/slot",
+     "kind": "extra_in_candidate",
+     "candidate": "09:00"
+    },
+    {
+     "path": "<body>/status",
+     "kind": "extra_in_candidate",
+     "candidate": "cancelled"
+    },
+    {
+     "path": "<db>/events/3",
+     "kind": "extra_in_candidate",
+     "candidate": {
+      "booking_id": "<booking#1:integer>",
+      "kind": "cancelled"
+     }
+    }
+   ],
+   "notes": [],
+   "produced": null,
+   "state": {
+    "reference": {
+     "bookings": [
+      {
+       "id": 1,
+       "customer": "existing",
+       "slot": "08:00",
+       "status": "active"
+      },
+      {
+       "id": "<booking#1:integer>",
+       "customer": "ana",
+       "slot": "09:00",
+       "status": "cancelled"
+      }
+     ],
+     "events": [
+      {
+       "booking_id": 1,
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "cancelled"
+      }
+     ]
+    },
+    "candidate": {
+     "bookings": [
+      {
+       "id": 1,
+       "customer": "existing",
+       "slot": "08:00",
+       "status": "active"
+      },
+      {
+       "id": "<booking#1:integer>",
+       "customer": "ana",
+       "slot": "09:00",
+       "status": "cancelled"
+      }
+     ],
+     "events": [
+      {
+       "booking_id": 1,
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "created"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "cancelled"
+      },
+      {
+       "booking_id": "<booking#1:integer>",
+       "kind": "cancelled"
+      }
+     ]
+    }
+   },
+   "reference": {
+    "status": "ok",
+    "duration_seconds": 0.000145,
+    "code": 409,
+    "headers": {
+     "server": "BaseHTTP/0.6 Python/3.13.15",
+     "date": "Mon, 02 Nov 2026 10:18:12 GMT",
+     "content-type": "application/json",
+     "content-length": "30"
+    },
+    "body": {
+     "error": "already_cancelled"
+    }
+   },
+   "candidate": {
+    "status": "ok",
+    "duration_seconds": 0.000379,
+    "code": 200,
+    "headers": {
+     "server": "BaseHTTP/0.6 Python/3.13.15",
+     "date": "Mon, 02 Nov 2026 10:18:12 GMT",
+     "content-type": "application/json",
+     "content-length": "71"
+    },
+    "body": {
+     "id": 8000,
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "cancelled"
+    },
+    "compared_body": {
+     "id": "<booking#1:integer>",
+     "customer": "ana",
+     "slot": "09:00",
+     "status": "cancelled"
+    }
+   }
+  }
+ ],
+ "id_mapping": {
+  "reference": {
+   "booking#1": 2
+  },
+  "candidate": {
+   "booking#1": 8000
+  }
+ },
+ "regression_json": {
+  "schema": "careo.scenario",
+  "schema_version": 1,
+  "spec_path": "<repo>/examples/booking-api/careo-scenarios.yaml",
+  "spec_relative": null,
+  "spec_fingerprint": "sha256:ab7479b3e15381778e1a7cea0d336c913500810d32e1ad5c4e8f85206d19db07",
+  "steps": [
+   {
+    "op": "create_booking",
+    "params": {},
+    "query": {},
+    "body": {
+     "customer": "ana",
+     "slot": "09:00"
+    }
+   },
+   {
+    "op": "cancel_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   },
+   {
+    "op": "cancel_booking",
+    "params": {
+     "id": {
+      "$ref": "booking#1"
+     }
+    },
+    "query": {}
+   }
+  ],
+  "recorded_outcome": "DIFFERENCE_CONFIRMED",
+  "expected_failure_signature": "[\"cancel_booking\",\"MISMATCH\",[[\"<body>/customer\",\"extra_in_candidate\"],[\"<body>/error\",\"missing_in_candidate\"],[\"<body>/id\",\"extra_in_candidate\"],[\"<body>/slot\",\"extra_in_candidate\"],[\"<body>/status\",\"extra_in_candidate\"],[\"<db>/events/3\",\"extra_in_candidate\"],[\"<status>\",\"status_changed\"]]]"
+ },
+ "regression_test": "\"\"\"Regression test exported by Careo.\n\nIt replays a minimized scenario against the configured reference and candidate\nfrom a clean, verified state. It FAILS while the behavioral difference exists\nand passes once the candidate matches the reference again.\n\"\"\"\n\nfrom pathlib import Path\n\nfrom careo.scenarios.runner import replay_file\n\n\ndef test_careo_regression() -> None:\n    result = replay_file(Path(__file__).with_name(\"regression.json\"))\n    assert result.verdict == \"MATCH\", result.describe()\n",
+ "spec": "# Careo stateful demo: reference booking API vs. an AI-rewrite-style candidate\n# with a deliberately seeded retry-cancellation regression. See README.md.\nversion: 1\n\nservices:\n  reference:\n    name: reference\n    command: [\"python3\", \"app_reference.py\", \"--port\", \"{port}\", \"--db\", \"{db}\"]\n    base_url: http://127.0.0.1:{port}\n    ready_path: /health\n  candidate:\n    name: ai-rewrite\n    command: [\"python3\", \"app_candidate.py\", \"--port\", \"{port}\", \"--db\", \"{db}\"]\n    base_url: http://127.0.0.1:{port}\n    ready_path: /health\n\nstate:\n  kind: sqlite\n  schema: schema.sql\n  fixture: seed.sql\n  reset: sqlite          # Careo wipes and reloads the DB, then verifies it\n  compare: each_step     # compare persistent state after every operation\n  tables:\n    - name: bookings\n      id_columns: {id: booking}\n    - name: events\n      ignore_columns: [id]            # internal autoincrement counter\n      id_columns: {booking_id: booking}\n\nentities: [booking]\n\noperations:\n  - name: create_booking\n    method: POST\n    path: /bookings\n    body:\n      customer: {sampled_from: [\"ana\", \"bo\", \"chen\"]}\n      slot: {sampled_from: [\"08:00\", \"09:00\", \"10:00\", \"11:00\"]}\n    produces: {entity: booking, pointer: /id}\n    expect_status: [201, 409]\n  - name: get_booking\n    method: GET\n    path: /bookings/{id}\n    params: {id: {bundle: booking}}\n    ids: [{entity: booking, pointer: /id}]\n  # Raw ids: only the fixture booking (1) and an id no implementation will\n  # generate. Raw ids of *generated* entities differ legitimately between\n  # implementations; use {bundle: booking} to reach those.\n  - name: get_raw_booking\n    method: GET\n    path: /bookings/{id}\n    params: {id: {sampled_from: [1, 999999]}}\n  - name: cancel_booking\n    method: POST\n    path: /bookings/{id}/cancel\n    params: {id: {bundle: booking}}\n    ids: [{entity: booking, pointer: /id}]\n  - name: reschedule_booking\n    method: PATCH\n    path: /bookings/{id}\n    params: {id: {bundle: booking}}\n    body:\n      slot: {sampled_from: [\"08:00\", \"09:00\", \"10:00\", \"11:00\"]}\n    ids: [{entity: booking, pointer: /id}]\n  - name: list_bookings\n    method: GET\n    path: /bookings\n    query:\n      limit: {integers: {min: 1, max: 3}}\n      offset: {integers: {min: 0, max: 3}}\n    ids: [{entity: booking, pointer: /items/*/id}]\n\nhttp:\n  timeout_seconds: 5\n  compare_headers: [content-type]\n\ngeneration:\n  seed: 20261102\n  max_scenarios: 200\n  max_steps: 25\n  shrink: true\n  replay_checks: 3\n",
+ "sources": {
+  "reference": {
+   "file": "examples/booking-api/app_reference.py",
+   "function": "def cancel(self, bid):\n    b = self.booking(bid)\n    if b is None:\n        return 404, {\"error\": \"not_found\"}\n    if b[\"status\"] == \"cancelled\":\n        return 409, {\"error\": \"already_cancelled\"}\n    self.db.execute(\"UPDATE bookings SET status = 'cancelled' WHERE id = ?\", (bid,))\n    self.event(bid, \"cancelled\")\n    return 200, self.booking(bid)"
+  },
+  "candidate": {
+   "file": "examples/booking-api/app_candidate.py",
+   "function": "def handle_cancel(store, booking_id):\n    booking = store.get(booking_id)\n    if not booking:\n        return 404, {\"error\": \"not_found\"}\n    # \"Make cancellation idempotent\" -- SEEDED BUG: the retry still emits an event\n    # and returns success instead of 409 already_cancelled.\n    store.conn.execute(\"UPDATE bookings SET status = 'cancelled' WHERE id = ?\", (booking_id,))\n    store.record(booking_id, \"cancelled\")\n    return 200, store.get(booking_id)"
+  }
+ },
+ "seeded_bug": "Deliberately seeded: retrying a cancellation returns 200 and records a second 'cancelled' event instead of 409 already_cancelled."
+}

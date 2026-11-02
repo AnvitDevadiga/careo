@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Careo: behavioral comparison for software rewrites</title>
+    <meta name="description" content="Careo compares original and rewritten software, generates behavioral tests, and exposes reproducible differences." />
+    <link rel="icon" type="image/svg+xml" href="/careo/favicon.svg" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Apply the saved theme before first paint (no flash). Light is the default.
+      try {
+        var t = localStorage.getItem("careo-theme");
+        if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

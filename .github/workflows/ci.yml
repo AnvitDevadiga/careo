@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Ruff format
+        run: uv run ruff format --check .
+      - name: Mypy
+        run: uv run mypy
+      - name: Pytest
+        run: uv run pytest
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Install wheel into a clean venv
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+      - name: Installed CLI smoke test
+        run: |
+          cd /tmp
+          /tmp/clean/bin/careo --version
+          /tmp/clean/bin/careo validate --config "$GITHUB_WORKSPACE/examples/bulk-pricing/careo.yaml"
+          set +e
+          PATH=/tmp/clean/bin:$PATH careo compare --config "$GITHUB_WORKSPACE/examples/bulk-pricing/careo.yaml" --output-dir /tmp/out
+          code=$?
+          set -e
+          test "$code" -eq 1
+          grep -q '"conclusion": "DIFFERENCES_FOUND"' /tmp/out/report.json
+          /tmp/clean/bin/careo replay --report /tmp/out/report.json

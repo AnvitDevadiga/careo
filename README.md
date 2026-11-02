@@ -1,244 +1,136 @@
-# Careo
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/careo-wordmark-dark.svg">
+    <img alt="careo." src="assets/careo-wordmark-light.svg" width="260">
+  </picture>
+</p>
 
-**Catch what the AI rewrite broke.**
+<p align="center"><strong>Catch what the AI rewrite broke.</strong><br>
+Behavioral comparison for software rewrites.<br>
+<a href="https://anvitdevadiga.github.io/careo/">Website and interactive demo</a></p>
 
-Careo is a differential testing tool. Give it an original program, a rewritten
-program, and a set of inputs. It runs both on identical inputs, compares what
-they observably do (JSON output, exit codes, optionally stderr), and writes a
-reproducible report of every difference.
+## What Careo does
 
-## Problem
+Careo runs an original and a rewritten implementation on identical inputs, starting
+from equivalent states. It compares what they observably do and turns any difference
+into a minimal, reproducible counterexample and a regression test.
 
-Rewrites (by AI or by people) usually pass the happy-path tests and break the
-edges: an off-by-one at a boundary, a `null` that became a missing field, an
-integer that became a string, an error that became a crash. Careo treats the
-original as the oracle and shows exactly where the candidate diverges.
+- **One-shot programs**: any executable that reads JSON on stdin and writes JSON on stdout.
+- **Stateful HTTP services**: Hypothesis-generated operation sequences against two local
+  services. Each scenario starts from a verified SQLite reset. Careo compares responses
+  and persistent state after every step.
 
-## Installation
+## Why it exists
 
-Python 3.11+, Linux or macOS.
-
-```sh
-pip install git+https://github.com/AnvitDevadiga/careo
-# or, from a checkout:
-uv sync && uv run careo --version
-```
+Rewrites, especially AI-assisted ones, tend to pass the happy-path tests and break
+the edges. Common breaks: a boundary off by one, a retried request that now has a
+second side effect, an error turned into a success. Careo treats the original as the
+oracle and searches for the first place the rewrite behaves differently.
 
 ## Quick start
 
-Each program reads one JSON value on stdin and writes one JSON value on stdout.
-Any language works: Careo only starts processes.
-
-```yaml
-# careo.yaml
-version: 1
-reference: {name: original,  command: ["python3", "original.py"], cwd: .,
-            identity_files: [lib]}   # extra code to hash for replay drift detection
-candidate: {name: rewrite,   command: ["./rewrite"],             cwd: .}
-cases: {file: cases.jsonl}        # one {"id": ..., "input": ...} per line
-comparison:
-  accepted_exit_codes: [0]        # exit codes that count as "ran normally"
-  stderr: ignore                  # ignore | exact
-  array_order: strict             # strict | ignore
-  numbers: strict                 # strict (1 != 1.0) | numeric
-  float_abs_tolerance: 0
-  repeat: 1                       # >1 runs each case repeatedly to detect nondeterminism
-limits: {timeout_seconds: 10, max_output_bytes: 1048576, max_input_bytes: 1048576}
-normalize:                        # explicit, visible in every report
-  - {id: ts, path: /generated_at, action: mask, reason: wall-clock time}
-  - {id: tmp, path: /files/*/path, action: regex, pattern: "/tmp/[^/]+", replacement: "<tmp>", reason: temp dirs}
-```
+Linux or macOS, Python 3.11+.
 
 ```sh
-careo validate --config careo.yaml               # check config, run nothing
-careo compare  --config careo.yaml --output-dir careo-report
-careo inspect  careo-report/report.json [--all] [--case ID]
-careo replay   --report careo-report/report.json [--config careo.yaml] [--output-dir DIR]
+python3 -m venv .venv && . .venv/bin/activate
+pip install git+https://github.com/AnvitDevadiga/careo
+git clone https://github.com/AnvitDevadiga/careo && cd careo
+
+careo compare --config examples/bulk-pricing/careo.yaml
+careo scenario run --spec examples/booking-api/careo-scenarios.yaml --output-dir out
+careo scenario replay --scenario out/regression.json
 ```
 
-Exit codes for `compare` and `inspect`: `0` every case matched · `1` at least
-one difference or failure · `2` invalid config, report or usage · `3` a
-program could not be executed, or Careo hit an internal error. `replay` returns `0` if every outcome and
-difference reproduced, `1` if not.
+Exit codes: `0` no difference observed, `1` difference or failure, `2` invalid
+configuration, `3` execution or reset error.
 
-## Example difference
+## Reproducible example
 
-`examples/bulk-pricing` has a correct original and an AI-rewrite-style
-candidate with a **deliberately seeded** bug (`>` instead of `>=` on discount
-tiers). It is a constructed demo, not a real-world finding.
+`examples/booking-api` contains a booking API and an AI-rewrite-style candidate. The
+candidate has a **deliberately seeded** bug: retrying a cancellation returns 200 and
+records a second event instead of 409. The example's own happy-path tests pass on
+both. A real run:
 
-```console
-$ careo compare --config examples/bulk-pricing/careo.yaml
-careo 0.2.0: comparing 10 case(s)
-  MATCH             happy-small
-  MATCH             happy-bulk
-  MATCH             zero-quantity
-  MATCH             below-tier-1
-  MISMATCH          at-tier-1
-  MATCH             above-tier-1
-  MISMATCH          at-tier-2
-  MATCH             negative-quantity
-  MATCH             bool-quantity
-  MATCH             huge-quantity
-DIFFERENCES_FOUND: MATCH=8, MISMATCH=2
-2 of 10 cases did not match.
-
-$ careo inspect careo-report/report.json
-[MISMATCH] at-tier-1  input={"quantity": 100, "unit_price_cents": 100}
-    /discount_percent: value_changed: 10 -> 0
-    /total_cents: value_changed: 9000 -> 10000
-```
-
-## Stateful HTTP testing
-
-Some regressions only show up after several operations. In the demo, creating,
-cancelling and then *retrying* the cancellation behaves differently.
-`careo scenario run` generates operation sequences with Hypothesis
-(`RuleBasedStateMachine` and bundles), runs each one against both services from a
-**verified** identical database state, and compares responses and persistent state
-after every step. It then shrinks the failure, re-verifies it, and exports a
-regression test.
-
-```console
-$ careo scenario run --spec examples/booking-api/careo-scenarios.yaml --output-dir out
-careo 0.2.0: stateful run, seed 20261102, up to 200 scenarios x 25 steps
-DIFFERENCE_CONFIRMED: A behavioral difference was found and its minimized sequence reproduced on every verification replay after a reset (see isolation).
-scenarios=381 operations=2981 resets=395 runtime=3.045s
-warning: database state was reset and verified, but service processes were not restarted: in-memory state can leak across scenarios (use reset: restart)
+```text
+DIFFERENCE_CONFIRMED
 original sequence: 13 operations; minimized: 3 operations; verified 3/3
-  0. {"op": "create_booking", "params": {}, "query": {}, "body": {"customer": "ana", "slot": "09:00"}}
-  1. {"op": "cancel_booking", "params": {"id": {"$ref": "booking#1"}}, "query": {}}
-  2. {"op": "cancel_booking", "params": {"id": {"$ref": "booking#1"}}, "query": {}}
+  0. create_booking(customer="ana", slot="09:00")
+  1. cancel_booking(id=booking#1)
+  2. cancel_booking(id=booking#1)
      <status>: status_changed: 409 -> 200
-     <body>/error: missing_in_candidate: "already_cancelled" -> (absent)
-     ...
      <db>/events/3: extra_in_candidate: (absent) -> {"booking_id": "<booking#1:integer>", "kind": "cancelled"}
-exported: out/regression.json
-exported: out/test_careo_regression.py
+exported: out/regression.json, out/test_careo_regression.py
 ```
 
-The candidate's seeded bug: a retried cancellation succeeds and records a
-second "cancelled" event. It was **deliberately planted** in
-`examples/booking-api/app_candidate.py`, and the example's own happy-path tests
-pass against both implementations. The candidate also numbers bookings
-differently (8000, 8003, …). Logical-id mapping (`booking#1` → 2 / 8000, shown as `<booking#1:integer>`) keeps
-that from being reported as a difference, while a genuinely wrong id still is.
+The recorded evidence is in [`benchmarks/results/demo/`](benchmarks/results/demo/).
+`python scripts/capture_demo.py --verify` re-runs it.
 
-Other commands: `careo scenario validate`, `careo scenario replay --scenario
-regression.json`, `careo scenario minimize`, and `careo bench`. See
-[docs/stateful.md](docs/stateful.md) for the spec format, the reset lifecycle,
-verdicts, the OpenAPI subset and the security model.
+## How comparison works
 
-## Benchmark (seeded fixtures)
+- **Strict by default.** `1` vs `1.0`, `true` vs `1`, `null` vs absent, array order,
+  duplicate JSON keys and non-JSON bytes all count.
+- **Explicit normalization.** Mask or regex rules are scoped by JSON Pointer and
+  reported with how often each fired.
+- **Identity mapping.** Generated ids are translated to logical entities
+  (`booking#1` → `2` / `8000`), keeping their JSON type. Ids are never ignored wholesale.
+- **Failures are never matches.** Crashes, timeouts and failures on both sides are
+  separate outcomes. A broken reset voids the run.
 
-Six regressions were **deliberately seeded** into an independent rewrite of the
-booking API. Two clean candidates (a clean rewrite with different ids, and the
-reference against itself) measure false alarms. Each case ran 5 seeds, with an
-equal budget of 400 search operations for methods B–D. These are the real
-results from `benchmarks/results/latest`:
+## Stateful discovery
 
-| Method | Seeded detection | Cases found | False alarms | Median sequence length (before → after shrink) |
-|---|---|---|---|---|
-| A. Example happy-path unit tests | 1/6 cases | 1/6 | 0/2 | n/a |
-| B. Single-operation random | 5/30 runs | 1/6 | 0/10 | 1 → 1 |
-| C. Stateful differential | 30/30 runs | 6/6 | 0/10 | 11.5 → 11.5 |
-| D. Stateful + shrinking | 30/30 runs | 6/6 | 0/10 | 11.5 → 2.5 |
+1. Each operation in the spec (or the supported OpenAPI subset) becomes a Hypothesis
+   rule. Bundles carry logical entities between steps.
+2. Before every scenario, the database is reset and independently verified against
+   the fixture. Services can also be restarted.
+3. A difference is shrunk by Hypothesis and then by bounded delta debugging. It is
+   **confirmed** only if every replay from a clean state fails the same way.
 
-How to read the table:
+## Actual evaluation results
 
-- **A is not budget-equal.** It is the example project's fixed test suite.
-- **D detects exactly what C does.** It runs the same seeded search; what it adds
-  is shorter counterexamples, every one replay-verified (30/30), at roughly 13×
-  more total operations.
-- **Small budgets miss things.** In smaller trial runs (150 operations, quick mode),
-  C and D missed `missing_error` because Hypothesis front-loads simple values.
+Six regressions were deliberately seeded into an independent rewrite of the booking
+API, and two clean candidates measure false alarms. Each case ran 5 seeds, and
+methods B–D had an equal budget of 400 search operations. These results come from
+[`benchmarks/results/latest`](benchmarks/results/latest/summary.md):
 
-These numbers describe these fixtures only. They are not evidence of
-effectiveness on real migrations. Raw per-run records, configurations and the
-commit are in [benchmarks/](benchmarks/).
+| Method | Seeded detection | False alarms | Median length before → after shrink |
+|---|---|---|---|
+| A. Example happy-path tests | 1/6 cases | 0/2 | n/a |
+| B. Single-operation random | 5/30 runs | 0/10 | 1 → 1 |
+| C. Stateful differential | 30/30 runs | 0/10 | 11.5 → 11.5 |
+| D. Stateful + shrinking | 30/30 runs | 0/10 | 11.5 → 2.5 |
 
-## Outcomes
+A is not budget-equal. D runs C's search, so it detects the same runs; what it
+adds is shorter, replay-verified counterexamples (30/30). Smaller budgets missed a
+defect in trial runs. These are seeded fixtures. They do not measure effectiveness
+on real migrations.
 
-| Outcome | Meaning |
-|---|---|
-| `MATCH` | Both ran normally; normalized outputs, exit codes (and stderr if `exact`) are identical |
-| `MISMATCH` | Both ran normally but behaved differently |
-| `CANDIDATE_FAILED` / `REFERENCE_FAILED` | One side crashed, was killed by a signal, exited with a non-accepted code, exceeded the output limit, or printed invalid JSON |
-| `BOTH_FAILED` | Both failed. Never counted as a match, even if the failures are identical |
-| `TIMEOUT` | Either side exceeded `timeout_seconds` |
-| `INCONCLUSIVE` | A side gave different results across `repeat` runs of the same input |
-| `EXECUTION_ERROR` | Careo could not start a program |
+## Documentation
 
-Comparison is strict by default: `1` vs `1.0`, `true` vs `1`, `0.0` vs `-0.0`,
-`null` vs absent, array order, NFC vs NFD strings, and duplicate JSON keys are
-all detected (duplicate keys and NaN/Infinity make output invalid).
+- [CLI reference and one-shot config](docs/cli.md)
+- [Stateful testing, spec format, OpenAPI subset](docs/stateful.md)
+- [Execution model](docs/design.md)
+- [Report schemas](docs/report-schema.md)
+- [Benchmarks and how to reproduce them](benchmarks/README.md)
 
-## Architecture
+## Security and limitations
 
-```
-src/careo/
-  cli.py              compare | validate | inspect | replay | scenario … | bench
-  config.py           Phase 1 config: strict YAML, path containment, executables
-  engine.py replay.py report.py   Phase 1 one-shot comparison, replay, reports
-  jsonvalue.py normalize.py       strict JSON, JSON-Pointer normalization rules
-  comparison/         structural diff under a ComparisonPolicy
-  execution/          one-shot runs (__init__) and managed services (service.py)
-  adapters/           http.py (loopback HTTP client), sqlite.py (reset + verify + snapshot)
-  scenarios/          spec.py, openapi.py, session.py (paired steps, logical ids),
-                      machine.py (Hypothesis), runner.py (shrink, verify, replay, export)
-  reporting/          scenario report rendering
-  evaluation/         bench.py (seeded-regression benchmark harness)
-```
-
-See [docs/design.md](docs/design.md) for the execution model and report schema.
-
-## Limitations
-
-- **Not a sandbox.** Programs run as you, with your filesystem and network
-  access. Only compare programs you own or are authorized to test.
-- Bounded testing: a clean report covers the supplied inputs only. It is not
-  a proof of equivalence.
-- Phase 1 contract is JSON-on-stdin / JSON-on-stdout. Files, network,
-  argv-based inputs and side effects are not compared.
-- Process cleanup kills the program's process group. A descendant that calls
-  `setsid` itself can escape it (reported as a failure if it holds the pipes).
-- Environment variable values are never written to reports or fingerprints.
-  As a result, replay cannot detect a change to an env value.
-- Floats are compared as 64-bit doubles, so `0.1` and `0.10000000000000001`
-  (the same double) match. A float literal that overflows (`1e400`) or
-  underflows (`1e-400`), or that has more than 17 significant digits and is not
-  exactly representable (`0.10000000000000000001`), counts as a failed run,
-  never as a match. Integers are compared exactly at any size.
-  Consequence: distinct float literals that round to the same double still
-  match (e.g. `9007199254740992.0` vs `9007199254740993.0`, `5e-324` vs
-  `4e-324`). Emit such values as integers or strings if the exact text matters.
-- `array_order: ignore` compares elements by exact canonical JSON, so
-  `float_abs_tolerance` and `numbers: numeric` do not apply inside unordered arrays.
-- Replay drift detection covers the executable, file arguments, and any
-  `identity_files` you list. Imported modules that are not listed are not tracked.
-- `mask` hides value changes (not type or presence changes) at that path, by design.
-- Linux and macOS only. Windows is untested.
-- Stateful testing:
-  - **Supported targets:** HTTP/JSON services with SQLite state only. PostgreSQL is
-    not supported yet.
-  - **Reset scope:** `reset: sqlite` resets the database, not in-memory caches.
-    Use `reset: restart` if services keep state in memory.
-  - **OpenAPI:** only a documented subset is supported.
-  - **Generation bias:** Hypothesis favors simple values early on, so some defects
-    need larger budgets (see benchmark results).
-  - **Minimization:** results are smaller, not proven globally minimal.
-
-## Tests
-
-```sh
-uv sync
-uv run pytest            # unit, integration, property, stateful, security and benchmark tests
-uv run ruff check . && uv run ruff format --check . && uv run mypy
-```
+- **Trusted programs only.** Careo runs the commands you configure as your user.
+  Subprocesses are not a sandbox, so only compare software you own or are authorized
+  to test.
+- **Local by default.** HTTP targets must be loopback unless you set `allow_remote: true`.
+  Paths must stay inside the config directory. Commands are argument lists, never shell
+  strings. Careo wipes a database only if it owns it or you confirm with
+  `reset_wipes_database: true`.
+- **Bounded testing.** Finite coverage, and no proof of equivalence. The reference can
+  itself be wrong.
+- **Scope.** SQLite state only, and a database reset does not clear in-memory caches
+  (use `reset: restart`). Only a subset of OpenAPI is supported. Linux and macOS only.
 
 ## License
 
 MIT. Copyright (c) 2026 Anvit Devadiga. See [LICENSE](LICENSE).
+
+## Credits
 
 Created by **Anvit Devadiga**.
 

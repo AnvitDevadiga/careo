@@ -86,7 +86,7 @@ class ManagedService:
                 self.stop()
                 raise ServiceError(
                     f"{self.name}: exited with code {self.proc.returncode} before becoming ready "
-                    f"(log: {self.log_path})"
+                    f"(log: {self.log_path}){self._log_tail()}"
                 )
             r = request(
                 self.endpoint,
@@ -102,7 +102,16 @@ class ManagedService:
         self.stop()
         raise ServiceError(
             f"{self.name}: not ready within {self.ready_timeout}s ({last}); log: {self.log_path}"
+            f"{self._log_tail()}"
         )
+
+    def _log_tail(self, limit: int = 1500) -> str:
+        try:
+            data = self.log_path.read_bytes()[-limit:]
+        except OSError:
+            return ""
+        text = data.decode("utf-8", "replace").strip()
+        return f"\n--- last service output ---\n{text}" if text else ""
 
     def alive(self) -> bool:
         return self.proc is not None and self.proc.poll() is None

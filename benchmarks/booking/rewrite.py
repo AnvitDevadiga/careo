@@ -16,9 +16,20 @@ Defects (all seeded on purpose; none are real-world findings):
 import argparse
 import json
 import re
+import socketserver
 import sqlite3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlsplit
+
+
+class LocalHTTPServer(HTTPServer):
+    """HTTPServer without the reverse-DNS lookup in server_bind (socket.getfqdn),
+    which can stall for many seconds on some hosts (seen on macOS CI runners)."""
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
 
 DEFECTS = {
     "none",
@@ -188,4 +199,4 @@ if __name__ == "__main__":
     ap.add_argument("--db", required=True)
     ap.add_argument("--defect", choices=sorted(DEFECTS), default="none")
     a = ap.parse_args()
-    HTTPServer(("127.0.0.1", a.port), handler_for(Service(a.db, a.defect))).serve_forever()
+    LocalHTTPServer(("127.0.0.1", a.port), handler_for(Service(a.db, a.defect))).serve_forever()

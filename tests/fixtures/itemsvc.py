@@ -8,9 +8,20 @@ Flags switch on specific (mis)behaviors.
 import argparse
 import json
 import os
+import socketserver
 import sqlite3
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class LocalHTTPServer(HTTPServer):
+    """HTTPServer without the reverse-DNS lookup in server_bind (socket.getfqdn),
+    which can stall for many seconds on some hosts (seen on macOS CI runners)."""
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--port", type=int, required=True)
@@ -130,4 +141,4 @@ class H(BaseHTTPRequestHandler):
         self.handle_any("DELETE")
 
 
-HTTPServer(("127.0.0.1", args.port), H).serve_forever()
+LocalHTTPServer(("127.0.0.1", args.port), H).serve_forever()

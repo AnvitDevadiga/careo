@@ -60,3 +60,9 @@ def test_underflow_rejected():
     for bad in (b"1e-400", b"-5e-500", b"[0.0, 1e-400]"):
         with pytest.raises(JSONParseError):
             parse_strict(bad)
+
+
+def test_documented_double_precision_semantics():
+    # Accepted limitation (README): literals rounding to the same double compare equal.
+    assert parse_strict(b"9007199254740993.0") == parse_strict(b"9007199254740992.0")
+    assert parse_strict(b"9007199254740993") != parse_strict(b"9007199254740992")

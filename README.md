@@ -139,6 +139,9 @@ See [docs/design.md](docs/design.md) for the execution model and report schema.
   underflows (`1e-400`), or that has more than 17 significant digits and is not
   exactly representable (`0.10000000000000000001`), counts as a failed run,
   never as a match. Integers are compared exactly at any size.
+  Consequence: distinct float literals that round to the same double still
+  match (e.g. `9007199254740992.0` vs `9007199254740993.0`, `5e-324` vs
+  `4e-324`). Emit such values as integers or strings if the exact text matters.
 - `array_order: ignore` compares elements by exact canonical JSON, so
   `float_abs_tolerance` and `numbers: numeric` do not apply inside unordered arrays.
 - Replay drift detection covers the executable, file arguments, and any

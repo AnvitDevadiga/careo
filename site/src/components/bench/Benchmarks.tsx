@@ -37,6 +37,11 @@ export function BenchmarksView({ data }: { data: BenchmarkData }) {
         <div><dt>Raw records</dt><dd><code>{data.generated_from.raw_records}</code></dd></div>
         <div><dt>SHA-256</dt><dd><code className="wrap">{data.generated_from.raw_records_sha256.slice(7, 23)}…</code></dd></div>
       </dl>
+      <p className="small">
+        Recorded with Careo {m.careo_version} at commit <code>{m.source_commit.slice(0, 7)}</code>. Changes to the engine since then
+        only add per-step state to scenario evidence and change version and report formatting; generation, comparison and
+        classification are unchanged.
+      </p>
       <CodeBlock code={data.reproduce} label="Reproduce" language="sh" />
     </>
   );

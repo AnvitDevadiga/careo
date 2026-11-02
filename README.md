@@ -102,7 +102,9 @@ methods B–D had an equal budget of 400 search operations. These results come f
 A is not budget-equal. D runs C's search, so it detects the same runs; what it
 adds is shorter, replay-verified counterexamples (30/30). Smaller budgets missed a
 defect in trial runs. These are seeded fixtures. They do not measure effectiveness
-on real migrations.
+on real migrations. The records were made with Careo 0.2.0 at commit `b489ace`. The
+1.0.0 engine adds per-step state to scenario evidence; generation, comparison and
+classification are unchanged.
 
 ## Documentation
 

@@ -7,7 +7,7 @@ All regressions are **deliberately seeded** into fixtures. These numbers describ
 
 | Method | Seeded detection | Cases found | False alarms (clean) | Median ops to 1st | Median len before → after shrink | Replay success | Search ops (budgeted) | Total ops incl. shrink+verify | Runtime s |
 |---|---|---|---|---|---|---|---|---|---|
-| A_unit_tests | 1/6 | 1/6 | 0/2 | None | None → None | 0/0 | 72 | 72 | 0.561 |
+| A_unit_tests | 1/6 | 1/6 | 0/2 | n/a | n/a → n/a | n/a | 72 | 72 | 0.561 |
 | B_single_operation | 5/30 | 1/6 | 0/10 | 20 | 1 → 1 | 5/5 | 14098 | 14150 | 43.779 |
 | C_stateful | 30/30 | 6/6 | 0/10 | 104.0 | 11.5 → 11.5 | 30/30 | 7872 | 9260 | 20.363 |
 | D_stateful_shrinking | 30/30 | 6/6 | 0/10 | 104.0 | 11.5 → 2.5 | 30/30 | 7872 | 117362 | 132.991 |

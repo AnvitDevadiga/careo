@@ -269,14 +269,17 @@ def render_markdown(summary: dict[str, Any], meta: dict[str, Any]) -> str:
     ]
 
     def r(x: dict[str, Any]) -> str:
-        return f"{x['numerator']}/{x['denominator']}"
+        return f"{x['numerator']}/{x['denominator']}" if x["denominator"] else "n/a"
+
+    def v(x: Any) -> str:
+        return "n/a" if x is None else str(x)
 
     for m, s in summary.items():
         lines.append(
             f"| {m} | {r(s['seeded_detection'])} | {r(s['seeded_cases_detected_at_least_once'])} | "
-            f"{r(s['false_alarms_on_clean'])} | {s['median_operations_to_first_difference']} | "
-            f"{s['median_sequence_length_before_shrink']} → "
-            f"{s['median_sequence_length_after_shrink']} | "
+            f"{r(s['false_alarms_on_clean'])} | {v(s['median_operations_to_first_difference'])} | "
+            f"{v(s['median_sequence_length_before_shrink'])} → "
+            f"{v(s['median_sequence_length_after_shrink'])} | "
             f"{r(s['replay_success'])} | {s['total_search_operations']} | "
             f"{s['total_operations_executed']} | {s['total_runtime_seconds']} |"
         )

@@ -34,7 +34,10 @@ def _parse_float(text: str) -> float:
     # Careo compares numbers at double precision. Refuse literals whose exact value
     # a double cannot hold (e.g. 0.10000000000000000001), rather than silently
     # collapsing two different outputs to the same float and calling them equal.
-    if Decimal(repr(value)) != Decimal(text):
+    exact = Decimal(text)
+    if value == 0.0 and exact != 0:
+        raise JSONParseError(f"number {text} underflows to zero as a 64-bit float")
+    if len(exact.as_tuple().digits) > 17 and Decimal(repr(value)) != exact.normalize():
         raise JSONParseError(
             f"number {text} cannot be represented exactly as a 64-bit float "
             "(Careo would lose precision comparing it)"

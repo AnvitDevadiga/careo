@@ -48,3 +48,15 @@ def test_exact_floats_accepted():
     assert parse_strict(b"0.30000000000000004") == 0.1 + 0.2
     assert parse_strict(b"1.5e3") == 1500.0
     assert parse_strict(b"-0.0") == 0.0
+
+
+def test_seventeen_digit_floats_accepted():
+    # %.17g output from C/Go/Java must not be rejected
+    assert parse_strict(b"0.10000000000000001") == 0.1
+    assert parse_strict(b"2.2250738585072014e-308") > 0
+
+
+def test_underflow_rejected():
+    for bad in (b"1e-400", b"-5e-500", b"[0.0, 1e-400]"):
+        with pytest.raises(JSONParseError):
+            parse_strict(bad)

@@ -80,6 +80,25 @@ def mask_marker(rule_id: str, original: JSONValue) -> str:
     return f"<careo:normalized:{rule_id}:{json_type(original)}>"
 
 
+@dataclass(frozen=True)
+class _Masked:
+    """Internal placeholder. Not a str, so later rules cannot re-mask it (losing the
+    original type tag) and program output can never be confused with it."""
+
+    rule_id: str
+    original_type: str
+
+
+def _finalize(value: Any) -> Any:
+    if isinstance(value, _Masked):
+        return f"<careo:normalized:{value.rule_id}:{value.original_type}>"
+    if isinstance(value, dict):
+        return {k: _finalize(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_finalize(v) for v in value]
+    return value
+
+
 def apply_rules(
     value: JSONValue, rules: tuple[NormalizationRule, ...]
 ) -> tuple[JSONValue, dict[str, int]]:
@@ -89,7 +108,7 @@ def apply_rules(
         compiled = re.compile(rule.pattern) if rule.action == "regex" and rule.pattern else None
         value, n = _apply(value, rule.segments(), rule, compiled)
         counts[rule.id] = n
-    return value, counts
+    return _finalize(value), counts
 
 
 def _apply(
@@ -132,8 +151,10 @@ def _apply(
 def _transform(
     value: JSONValue, rule: NormalizationRule, compiled: re.Pattern[str] | None
 ) -> tuple[JSONValue, int]:
+    if isinstance(value, _Masked):
+        return value, 0  # first mask wins; its type tag is preserved
     if rule.action == "mask":
-        return mask_marker(rule.id, value), 1
+        return _Masked(rule.id, json_type(value)), 1
     # regex: only string values are rewritten; other types are left untouched so a
     # type change at a normalized path is still reported.
     if isinstance(value, str) and compiled is not None:

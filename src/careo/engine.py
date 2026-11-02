@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import platform
 import sys
 from collections.abc import Callable
@@ -245,8 +246,20 @@ def _hash_tree(path: Path) -> str | None:
     if not path.is_dir():
         return None
     h = hashlib.sha256()
-    for f in sorted(p for p in path.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
-        h.update(f"{f.relative_to(path).as_posix()}\0{sha256_file(f)}\0".encode())
+    seen: set[str] = set()
+    entries: list[tuple[str, Path]] = []
+    for root, dirs, names in os.walk(path, followlinks=True):
+        real = os.path.realpath(root)
+        if real in seen:  # symlink cycle
+            dirs[:] = []
+            continue
+        seen.add(real)
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for name in names:
+            f = Path(root) / name
+            entries.append((f.relative_to(path).as_posix(), f))
+    for rel, f in sorted(entries):
+        h.update(f"{rel}\0{sha256_file(f)}\0".encode())
     return "sha256-tree:" + h.hexdigest()
 
 

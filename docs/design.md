@@ -26,7 +26,8 @@ Safety measures that do exist:
 ## Comparison pipeline
 
 1. Encode the case input as UTF-8 JSON + newline and write it to stdin.
-2. Parse strictly: floats must be finite and exactly representable as a double.
+2. Parse strictly: floats must not overflow or underflow, and literals with more
+   than 17 significant digits must be exactly representable as a double.
    Classify each run as `ok`, `failed`, `timeout` or `spawn_error`. A run is `ok`
    only if the exit code is accepted and stdout is exactly one strict JSON value.
 3. Apply normalization rules to `ok` outputs. Each rule records how many values it changed;
@@ -36,7 +37,8 @@ Safety measures that do exist:
    stderr differences use `<exit_code>` and `<stderr>`.
 
 `mask` replaces a value with `<careo:normalized:ID:TYPE>`, so a masked field
-that changes type, or disappears, still shows up as a difference.
+that changes type, or disappears, still shows up as a difference. With overlapping
+rules the first matching mask wins, and its type tag is kept.
 
 ## Report schema (version 1)
 

@@ -134,9 +134,11 @@ See [docs/design.md](docs/design.md) for the execution model and report schema.
   `setsid` itself can escape it (reported as a failure if it holds the pipes).
 - Environment variable values are never written to reports or fingerprints.
   As a result, replay cannot detect a change to an env value.
-- Numbers are compared as 64-bit floats. Output containing a float literal that
-  a double cannot hold exactly (`1e400`, `0.10000000000000000001`) counts as a
-  failed run, never as a match. Integers are compared exactly at any size.
+- Floats are compared as 64-bit doubles, so `0.1` and `0.10000000000000001`
+  (the same double) match. A float literal that overflows (`1e400`) or
+  underflows (`1e-400`), or that has more than 17 significant digits and is not
+  exactly representable (`0.10000000000000000001`), counts as a failed run,
+  never as a match. Integers are compared exactly at any size.
 - `array_order: ignore` compares elements by exact canonical JSON, so
   `float_abs_tolerance` and `numbers: numeric` do not apply inside unordered arrays.
 - Replay drift detection covers the executable, file arguments, and any

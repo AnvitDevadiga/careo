@@ -77,3 +77,18 @@ def test_candidate_cannot_spoof_a_mask_marker():
 def test_masking_is_deterministic(v):
     rules = (mask("/*"),)
     assert apply_rules(v, rules) == apply_rules(v, rules)
+
+
+def test_overlapping_masks_keep_original_type():
+    rules = (mask("/t", "a"), mask("/*", "b"))
+    a, ca = apply_rules({"t": 5}, rules)
+    b, _ = apply_rules({"t": "x"}, rules)
+    assert a == {"t": "<careo:normalized:a:integer>"}
+    assert ca == {"a": 1, "b": 0}
+    assert [d.kind for d in diff(a, b, ComparisonPolicy())] == ["value_changed"]
+
+
+def test_regex_after_mask_does_not_touch_masked_value():
+    rules = (mask("/t", "a"), NormalizationRule("r", "/t", "regex", "x", "careo", "Z"))
+    out, counts = apply_rules({"t": "careo"}, rules)
+    assert out == {"t": "<careo:normalized:a:string>"} and counts["r"] == 0

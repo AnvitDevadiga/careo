@@ -357,3 +357,22 @@ def test_identity_files_must_be_contained(project, tmp_path):
     cfg.write_text(yaml.safe_dump(data))
     with pytest.raises(ConfigError, match="outside"):
         load_config(cfg)
+
+
+def test_identity_files_follow_symlinked_dirs(project, tmp_path, capsys):
+    import yaml
+
+    cfg = project([{"id": "a", "input": {"value": 1}}])
+    real = cfg.parent / "real"
+    real.mkdir()
+    (real / "helper.py").write_text("X = 1\n")
+    (cfg.parent / "pkg").mkdir()
+    (cfg.parent / "pkg" / "sub").symlink_to(real, target_is_directory=True)
+    (cfg.parent / "pkg" / "loop").symlink_to(cfg.parent / "pkg", target_is_directory=True)
+    data = yaml.safe_load(cfg.read_text())
+    data["reference"]["identity_files"] = ["pkg"]
+    cfg.write_text(yaml.safe_dump(data))
+    compare(cfg, tmp_path / "out")
+    (real / "helper.py").write_text("X = 2\n")
+    main(["replay", "--report", str(tmp_path / "out" / "report.json")])
+    assert "file pkg contents changed" in capsys.readouterr().out

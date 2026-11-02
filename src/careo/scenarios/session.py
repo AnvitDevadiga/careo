@@ -172,6 +172,7 @@ class StepResult:
     differences: list[Difference]
     notes: list[str]
     produced: str | None = None
+    state: dict[str, Any] | None = None  # compared DB rows after this step (translated)
 
     def signature(self) -> str:
         return canonical(
@@ -190,6 +191,7 @@ class StepResult:
             "differences": [d.to_dict() for d in self.differences],
             "notes": self.notes,
             "produced": self.produced,
+            **({"state": self.state} if self.state is not None else {}),
             "reference": self.reference,
             "candidate": self.candidate,
         }
@@ -224,6 +226,7 @@ class Session:
         self.started = False
         self.normalization_totals = {r.id: 0 for r in spec.rules}
         self.id_translations = 0
+        self.last_state: dict[str, Any] | None = None
 
     # lifecycle -----------------------------------------------------------
     def prepare(self) -> None:
@@ -397,6 +400,7 @@ class Session:
             c = self._translate_rows(self.cand, self.cand.state.snapshot())  # type: ignore[union-attr]
         except Exception as exc:  # sqlite3.Error and friends
             return [Difference("<db>", "state_unreadable", detail=f"{type(exc).__name__}: {exc}")]
+        self.last_state = {"reference": r, "candidate": c}
         diffs: list[Difference] = []
         for t in st.tables:
             policy = ComparisonPolicy(
@@ -508,10 +512,13 @@ class Session:
                 )
 
         st = self.spec.state
+        state = None
         if st and st.compare == "each_step":
+            self.last_state = None
             diffs += self.compare_state()
+            state = self.last_state
         verdict = STEP_MISMATCH if diffs else STEP_MATCH
-        return StepResult(index, step, verdict, r_obs, c_obs, diffs, notes, produced)
+        return StepResult(index, step, verdict, r_obs, c_obs, diffs, notes, produced, state)
 
     def _produce(
         self, ip: IdPath, r_body: Any, c_body: Any

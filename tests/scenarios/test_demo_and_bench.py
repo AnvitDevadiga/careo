@@ -79,6 +79,8 @@ def test_demo_finds_and_minimizes_seeded_retry_bug(tmp_path, capsys):
     diffs = {(d["path"], d["kind"]) for d in report["evidence"][-1]["differences"]}
     assert ("<status>", "status_changed") in diffs
     assert any(p.startswith("<db>/events") for p, _ in diffs)  # the duplicate side effect
+    last_state = report["evidence"][-1]["state"]
+    assert len(last_state["candidate"]["events"]) == len(last_state["reference"]["events"]) + 1
     assert (tmp_path / "test_careo_regression.py").exists()
     assert main(["scenario", "replay", "--scenario", str(tmp_path / "regression.json")]) == 0
 
